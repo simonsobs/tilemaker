@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+
+[project]
+name = "tilemaker"
+version = "0.0.1a1"
+requires-python = ">=3.11"
+dependencies = [
+    "sqlmodel",
+    "pydantic-settings",
+    "numpy",
+    "pydantic_numpy",
+    "fastapi",
+    "uvicorn",
+]
+
+[tool.ruff.lint]
+extend-select = ["I"]

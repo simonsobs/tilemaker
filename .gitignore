@@ -1,0 +1,5 @@
+env/*
+*.db
+*.png
+*.pyc
+*.egg-info
