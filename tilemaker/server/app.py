@@ -74,7 +74,7 @@ def get_tile(
     - .jpg (you will get a rendered JPG)
     """
 
-    if ext not in ["jpg"]:
+    if ext not in ["jpg", "webp", "png"]:
         raise HTTPException(
             status_code=400, detail="Not an acceptable extension"
         )
@@ -97,9 +97,17 @@ def get_tile(
     if result is None:
         raise HTTPException(status_code=404, detail="Tile not found")
     
-    numpy_buf = np.frombuffer(result.data, dtype=np.float32).reshape((tile_size, tile_size))
+    numpy_buf = np.frombuffer(result.data, dtype=result.data_type).reshape((tile_size, tile_size))
     
     if ext == "jpg":
         with io.BytesIO() as output:
             renderer.render(output, numpy_buf, render_options=render_options)
             return Response(content=output.getvalue(), media_type="image/jpg")
+    elif ext == "webp":
+        with io.BytesIO() as output:
+            renderer.render(output, numpy_buf, render_options=render_options)
+            return Response(content=output.getvalue(), media_type="image/webp")
+    elif ext == "png":
+        with io.BytesIO() as output:
+            renderer.render(output, numpy_buf, render_options=render_options)
+            return Response(content=output.getvalue(), media_type="image/png")
