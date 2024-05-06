@@ -29,18 +29,33 @@ if mode == "create":
 
         add = []
 
-        for fits_image in fits_file.individual_trees:
+        for fits_image in [fits_file.individual_trees[0]]:
             tile_size = fits_image.tile_size
             number_of_layers = fits_image.number_of_levels
 
             tree = LayerTree(number_of_layers=number_of_layers, image_pixel_size=tile_size, image=fits_image)
+
+            import matplotlib.pyplot as plt
+
+            plt.imsave("test.png", tree.get_tile(5, 62, 19).data, cmap="viridis", vmin=-500, vmax=500)
+
+            top_right, bottom_left = fits_image.world_size_degrees()
 
             band = tilemaker.orm.Band(
                 map=map_metadata,
                 tiles_available=True,
                 levels=number_of_layers,
                 tile_size=tile_size,
-                stokes_parameter=str(fits_image.identifier)
+                frequency=str(fits_image.header.get("FREQ", "").replace("f", "")),
+                stokes_parameter=str(fits_image.identifier),
+                units=str(fits_image.header.get("BUNIT", "")),
+                recommended_cmap_min=-500.0,
+                recommended_cmap_max=500.0,
+                recommended_cmap="RdBu_r",
+                bounding_left=bottom_left[0].value,
+                bounding_right=top_right[0].value,
+                bounding_top=top_right[1].value,
+                bounding_bottom=bottom_left[1].value,
             )
 
             tile_metadata = []
@@ -66,7 +81,11 @@ if mode == "create":
                             y=y,
                             band=band,
                             data=bytes,
+                            data_type=str(tile_data.data.dtype) if tile_data.data is not None else None
                         ))
+
+                        if depth == 5 and x == 62 and y == 19:
+                            plt.imsave("test2.png", tile_data.data, cmap="viridis", vmin=-500, vmax=500)
 
             add += [map_metadata, band] + tile_metadata
 

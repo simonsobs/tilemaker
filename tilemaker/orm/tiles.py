@@ -37,6 +37,9 @@ class Tile(SQLModel, table=True):
     )
     band: "Band" = Relationship(back_populates="tiles")
 
+    data_type: str | None = Field(
+        description="The data type of the underlying tile data."
+    )
     data: bytes | None = Field(
         description="The actual tile data."
     )

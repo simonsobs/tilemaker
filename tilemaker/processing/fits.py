@@ -16,6 +16,7 @@ from pydantic import BaseModel
 
 COORD_TOL = 1e-3
 
+
 class MapProjectionEnum(Enum):
     EQUIRECTANGULAR = "EQUIRECTANGULAR"
 
@@ -35,6 +36,7 @@ class FITSFile(BaseModel):
     A FITS file that can link out to multiple underlying
     'bands', notably different Stokes parameters.
     """
+
     filename: Path
     "The filename of the FITS file."
 
@@ -61,7 +63,9 @@ class FITSFile(BaseModel):
                 else:
                     hdus.append((i, None))
 
-        return [FITSImage(self.filename, hdu=i, identifier=stokes) for i, stokes in hdus]
+        return [
+            FITSImage(self.filename, hdu=i, identifier=stokes) for i, stokes in hdus
+        ]
 
 
 class FITSImage:
@@ -81,7 +85,9 @@ class FITSImage:
     "Size of the tiles to read from the file."
     _number_of_levels: Optional[int] = None
 
-    def __init__(self, filename: Path, hdu: int = 0, identifier: Optional[Union[str, int]] = None):
+    def __init__(
+        self, filename: Path, hdu: int = 0, identifier: Optional[Union[str, int]] = None
+    ):
         """
         Parameters
         ----------
@@ -111,7 +117,7 @@ class FITSImage:
         max_size = max(map_size_x, map_size_y)
 
         # See if 256 fits.
-        if (map_size_x % 256 == 0) and (map_size_y % 256 ==0):
+        if (map_size_x % 256 == 0) and (map_size_y % 256 == 0):
             self._tile_size = 256
             self._number_of_levels = int(math.log2(max_size // 256))
             return self.tile_size
@@ -144,13 +150,13 @@ class FITSImage:
 
     def read_data(self) -> np.ndarray:
         """
-        Read the data array for the file given the identifier.
-.
+                Read the data array for the file given the identifier.
+        .
 
-        Returns
-        -------
-        np.ndarray
-            Array read from file.
+                Returns
+                -------
+                np.ndarray
+                    Array read from file.
         """
 
         if self.wcs is None:
@@ -200,7 +206,6 @@ class FITSImage:
         else:
             return [Map(identifier=i) for i in range(int(self.header["NAXIS3"]))]
 
-
     def axes(self) -> tuple[int, int]:
         """
         Gets the RA, and Dec axes.
@@ -243,15 +248,22 @@ class FITSImage:
 
         return ra_axis, dec_axis
 
+    def world_full_array_size(self) -> tuple[int]:
+        return list(
+            reversed(
+                [
+                    self.header.get(f"NAXIS{x}")
+                    for x in range(1, self.header.get("NAXIS", 0) + 1)
+                ]
+            )
+        )
+
     def world_width(self) -> tuple[int, int]:
         """
         Get the ra and dec world width.
         """
 
         ra_axis, dec_axis = self.axes()
-
-        n_pix_ra = self.header[f"NAXIS{ra_axis}"]
-        n_pix_dec = self.header[f"NAXIS{dec_axis}"]
 
         # Identify the pixel scale in RA and DEC
         deg_per_pix_ra = self.header[f"CDELT{ra_axis}"]
@@ -283,6 +295,25 @@ class FITSImage:
         dec_world_width = top_right[-dec_axis] - bottom_left[-dec_axis]
 
         return ra_world_width, dec_world_width
+
+    def world_size_degrees(self) -> tuple[tuple[units.Quantity]]:
+        """
+        Returns the top right and bottom left tuple for ra and dec, supprts
+        ra, dec as properties.
+        """
+        ra_world_width, dec_world_width = self.world_width()
+
+        top_right = self.wcs.array_index_to_world(*[0] * self.header.get("NAXIS", 2))
+        bottom_left = self.wcs.array_index_to_world(
+            *[x - 1 for x in self.world_full_array_size()]
+        )
+
+        sanitize = lambda x: (
+            x[0].ra if x[0].ra < 180.0 * units.deg else x[0].ra - 360.0 * units.deg,
+            x[0].dec if x[0].dec < 90.0 * units.deg else x[0].dec - 180.0 * units.deg,
+        )
+
+        return sanitize(top_right), sanitize(bottom_left)
 
     def slice_raw_data(
         self, slice: np.s_
@@ -345,12 +376,6 @@ class FITSImage:
             SkyCoord((-180 + COORD_TOL) * units.deg, (90 - COORD_TOL) * units.deg),
             StokesCoord("I"),
         )
-
-        # Those pixels are now re-mapped to (0, 0), (N, M) in our new space that covers the whole map.
-        # We can easily calculate offsets.
-
-        ra_world_width = top_right[-ra_axis] - bottom_left[-ra_axis]
-        dec_world_width = top_right[-dec_axis] - bottom_left[-dec_axis]
 
         start_ra = bottom_left[-ra_axis]
         start_dec = bottom_left[-dec_axis]
@@ -609,7 +634,14 @@ class Layer:
                     node.y * image_pixel_size : (node.y + 1) * image_pixel_size,
                 ]
 
-                node.data = image.slice_raw_data(selector)
+                raw_data = image.slice_raw_data(selector)
+
+                if raw_data is not None:
+                    if raw_data.dtype.byteorder != "=":
+                        raw_data = raw_data.byteswap().newbyteorder("=")
+                
+                node.data = raw_data
+
 
     def __getitem__(self, key: tuple[int]):
         y, x = key
@@ -618,9 +650,8 @@ class Layer:
 
 class LayerTree:
     initialized: bool = False
-    def __init__(
-        self, number_of_layers: int, image_pixel_size: int, image: FITSImage
-    ):
+
+    def __init__(self, number_of_layers: int, image_pixel_size: int, image: FITSImage):
         self.number_of_layers = number_of_layers
         self.image_pixel_size = image_pixel_size
         self.image = image
