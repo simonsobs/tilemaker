@@ -12,24 +12,36 @@ import tilemaker.database as db
 import tilemaker.orm
 from tilemaker.processing.fits import FITSFile, LayerTree
 
+QUANTITY_MAP = {
+    "uK": "T",
+}
+
 mode = sys.argv[1]
 
 if mode == "create":
     db.create_database_and_tables()
 
-    filename = "/Users/borrow-adm/Documents/Projects/imageviewer/TestImages/act_dr5.01_s08s18_AA_f090_daynight_map.fits"
+    filename = sys.argv[2]
+    map_name = sys.argv[3]
     fits_file = FITSFile(filename=filename)
 
-
     with db.get_session() as session:
-        map_metadata = tilemaker.orm.Map(
-            name="FITS_Map",
-            description="An example fits map"
-        )
-
         add = []
+        
+        if (map_metadata := session.get(tilemaker.orm.Map, map_name)) is None:
+            map_metadata = tilemaker.orm.Map(
+                name=map_name,
+                description="An example fits map",
+                telescope=fits_file.individual_trees[0].header.get("TELESCOP", None),
+                data_release=fits_file.individual_trees[0].header.get("RELEASE", None),
+                season=fits_file.individual_trees[0].header.get("SEASON", None),
+                tags=fits_file.individual_trees[0].header.get("ACTTAGS", None),
+                patch=fits_file.individual_trees[0].header.get("PATCH", None)
+            )
 
-        for fits_image in fits_file.individual_trees:
+            add.append(map_metadata)
+
+        for fits_image in [fits_file.individual_trees[0]]:
             tile_size = fits_image.tile_size
             number_of_layers = fits_image.number_of_levels
 
@@ -52,6 +64,22 @@ if mode == "create":
                 bounding_right=top_right[0].value,
                 bounding_top=top_right[1].value,
                 bounding_bottom=bottom_left[1].value,
+                quantity=QUANTITY_MAP.get(str(fits_image.header.get("BUNIT", "")), None)
+            )
+
+            H, edges = fits_image.histogram_raw_data(
+                n_bins=128, min=-2000.0, max=2000.0
+            )
+
+            histogram = tilemaker.orm.Histogram(
+                band=band,
+                start=-2000.0,
+                end=2000.0,
+                bins=128,
+                edges_data_type=str(edges.dtype),
+                edges=edges.tobytes(order="C"),
+                histogram_data_type=str(H.dtype),
+                histogram=H.tobytes(order="C")
             )
 
             tile_metadata = []
@@ -80,10 +108,12 @@ if mode == "create":
                             data_type=str(tile_data.data.dtype) if tile_data.data is not None else None
                         ))
 
-            add += [map_metadata, band] + tile_metadata
+            add += [band, histogram] + tile_metadata
 
-        session.add_all(add)
-        session.commit()
+            session.add_all(add)
+            session.commit()
+
+            add = []
 
     print("Database successfully created.")
 elif mode == "delete":

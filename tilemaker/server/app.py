@@ -4,32 +4,42 @@ Main server app.
 
 import io
 
+import matplotlib.pyplot as plt
 import numpy as np
 from fastapi import Depends, FastAPI, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import RedirectResponse
+from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
 from sqlalchemy.orm import subqueryload
 from sqlmodel import select
 
 from .. import database as db
 from .. import orm
 from ..processing.renderer import Renderer, RenderOptions
+from ..settings import settings
 
 app = FastAPI()
 render_options = RenderOptions()
-renderer = Renderer(format="jpg")
+renderer = Renderer(format="webp")
 
-origins = [
-    "http://localhost",
-    "http://localhost:1234",
-]
+if settings.add_cors:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# Make a simple static dude
+if settings.static_directory is not None:
+    app.mount("/static", StaticFiles(directory=settings.static_directory), name="spa")
+
+    @app.get("/")
+    async def redirect():
+        response = RedirectResponse(url='/static/index.html')
+        return response
 
 @app.get("/maps")
 def get_maps():
@@ -111,3 +121,43 @@ def get_tile(
         with io.BytesIO() as output:
             renderer.render(output, numpy_buf, render_options=render_options)
             return Response(content=output.getvalue(), media_type="image/png")
+        
+
+@app.get("/histograms/{cmap}.png")
+def histograms_cmap(
+    cmap: str
+):
+    "Get a 8 x 256 image of a colour map for visualisation."
+    try:
+        color_map = plt.get_cmap(cmap)
+        mapped = color_map([np.linspace(0, 1, 256)] * 8)
+
+        with io.BytesIO() as output:
+            plt.imsave(output, mapped)
+            return Response(content=output.getvalue(), media_type="image/png")
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Color map not found")
+    
+class HistogramResponse(BaseModel):
+    edges: list[float]
+    histogram: list[int]
+    band_id: int
+    
+@app.get("/histograms/data/{band_id}")
+def histogram_data(
+    band_id: int
+) -> HistogramResponse:
+    with db.get_session() as session:
+        stmt = select(orm.Histogram).where(orm.Histogram.band_id == band_id)
+        result = session.exec(stmt).one_or_none()
+
+        if result is None:
+            raise HTTPException(status_code=404, detail="Histogram not found")
+        
+        response = HistogramResponse(
+            edges=np.frombuffer(result.edges, dtype=result.edges_data_type).tolist(),
+            histogram=np.frombuffer(result.histogram, dtype=result.histogram_data_type).tolist(),
+            band_id=result.band_id
+        )
+
+    return response

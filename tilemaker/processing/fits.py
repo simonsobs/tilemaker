@@ -59,7 +59,7 @@ class FITSFile(BaseModel):
                         )
                     else:
                         for stokes in StokesParameters:
-                            hdus.append((i, stokes.value))
+                            hdus.append((i, stokes.name))
                 else:
                     hdus.append((i, None))
 
@@ -476,6 +476,17 @@ class FITSImage:
             pdb.set_trace()
 
         return np.ma.MaskedArray(data_buffer, mask=mask_buffer)
+    
+    def histogram_raw_data(self, n_bins: int, min: float, max: float) -> tuple[np.array]:
+        """
+        Generate a histogram of the raw data, with a given range and number of bins.
+        """
+
+        bins = np.linspace(min, max, n_bins + 1)
+
+        H, edges = np.histogram(self.read_data(), bins=bins)
+
+        return H, edges
 
 
 class FITSTile:

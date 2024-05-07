@@ -3,3 +3,5 @@ env/*
 *.png
 *.pyc
 *.egg-info
+*.DS_Store
+*.swp

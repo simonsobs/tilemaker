@@ -7,10 +7,10 @@ map correpsonds to a single frequency band.
 
 from typing import TYPE_CHECKING
 
-from pydantic import BaseModel
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
+    from .histogram import Histogram
     from .tiles import Tile
 
 
@@ -24,6 +24,31 @@ class MapBase(SQLModel):
         default=None,
         max_length=255,
         description="A description of the map."
+    )
+    telescope: str | None = Field(
+        default=None,
+        max_length=255,
+        description="The telescope that was used to create this map."
+    )
+    data_release: str | None = Field(
+        default=None,
+        max_length=255,
+        description="The data release that this map is part of."
+    )
+    season: str | None = Field(
+        default=None,
+        max_length=255,
+        description="The season that this map was taken in."
+    )
+    tags: str | None = Field(
+        default=None,
+        max_length=255,
+        description="Any tags that are associated with this map."
+    )
+    patch: str | None = Field(
+        default=None,
+        max_length=255,
+        description="The patch of the sky that this map covers."
     )
 
 class Map(MapBase, table=True):
@@ -63,6 +88,10 @@ class Band(SQLModel, table=True):
         description="The Stokes parameter of this band."
     )
 
+    quantity: str | None = Field(
+        default=None,
+        description="The quantity that the map is of."
+    )
     units: str | None = Field(
         default=None,
         description="The units that the map is in."
@@ -91,3 +120,5 @@ class Band(SQLModel, table=True):
         description="The size of the tiles in pixels."
     )
     tiles: list["Tile"] = Relationship(back_populates="band", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
+
+    histogram: "Histogram" = Relationship(back_populates="band", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
