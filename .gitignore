@@ -5,3 +5,5 @@ env/*
 *.egg-info
 *.DS_Store
 *.swp
+templates/*
+dist/*

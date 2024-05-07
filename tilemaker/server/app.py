@@ -4,9 +4,10 @@ Main server app.
 
 import io
 
+from fastapi.templating import Jinja2Templates
 import matplotlib.pyplot as plt
 import numpy as np
-from fastapi import Depends, FastAPI, HTTPException, Response
+from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -35,10 +36,14 @@ if settings.add_cors:
 # Make a simple static dude
 if settings.static_directory is not None:
     app.mount("/static", StaticFiles(directory=settings.static_directory), name="spa")
+    
+    templates = Jinja2Templates(directory="templates")
 
     @app.get("/")
-    async def redirect():
-        response = RedirectResponse(url='/static/index.html')
+    async def home(request: Request):
+        response = templates.TemplateResponse(
+            "index.html", context={"settings": settings, "request": request}
+        )
         return response
 
 @app.get("/maps")
@@ -92,10 +97,10 @@ def get_tile(
     with db.get_session() as session:
         stmt = (
             select(orm.Tile).where(
-                orm.Tile.band_id==band,
-                orm.Tile.level==level,
-                orm.Tile.y==y,
-                orm.Tile.x==x,
+                orm.Tile.band_id==int(band),
+                orm.Tile.level==int(level),
+                orm.Tile.y==int(y),
+                orm.Tile.x==int(x),
             )
         )
 
@@ -148,7 +153,7 @@ def histogram_data(
     band_id: int
 ) -> HistogramResponse:
     with db.get_session() as session:
-        stmt = select(orm.Histogram).where(orm.Histogram.band_id == band_id)
+        stmt = select(orm.Histogram).where(orm.Histogram.band_id == int(band_id))
         result = session.exec(stmt).one_or_none()
 
         if result is None:

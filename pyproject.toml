@@ -2,6 +2,8 @@
 requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
+[tool.setuptools.packages.find]
+exclude = ["templates"]
 
 [project]
 name = "tilemaker"
@@ -14,6 +16,8 @@ dependencies = [
     "pydantic_numpy",
     "fastapi",
     "uvicorn",
+    "matplotlib",
+    "astropy",
 ]
 
 [tool.ruff.lint]

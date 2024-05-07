@@ -16,6 +16,9 @@ class Settings(BaseSettings):
     static_directory: str | None = None
     "Static directory to serve the SPA from. If missing, no static is used."
 
+    api_endpoint: str = "./"
+    "The location of the API endpoint. Default assumes from the same place as the server."
+
     class Config:
         env_prefix = "TILEMAKER_"
 
