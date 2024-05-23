@@ -10,7 +10,7 @@ import numpy as np
 
 import tilemaker.database as db
 import tilemaker.orm
-from tilemaker.processing.fits import FITSFile, LayerTree
+from tilemaker.processing.fits_simple import FITSSimpleLoader, FITSFile, LayerTree
 
 QUANTITY_MAP = {
     "uK": "T",
@@ -41,7 +41,7 @@ if mode == "create":
 
             add.append(map_metadata)
 
-        for fits_image in [fits_file.individual_trees[0]]:
+        for fits_image in fits_file.individual_trees:
             tile_size = fits_image.tile_size
             number_of_layers = fits_image.number_of_levels
 
@@ -54,7 +54,7 @@ if mode == "create":
                 tiles_available=True,
                 levels=number_of_layers,
                 tile_size=tile_size,
-                frequency=str(fits_image.header.get("FREQ", "").replace("f", "")),
+                frequency=str(fits_image.header.get("FREQ", "").replace("f", "90")),
                 stokes_parameter=str(fits_image.identifier),
                 units=str(fits_image.header.get("BUNIT", "")),
                 recommended_cmap_min=-500.0,
@@ -119,12 +119,8 @@ if mode == "create":
 elif mode == "delete":
     # Check that we can delete our map easily.
     with db.get_session() as session:
-        session.query(tilemaker.orm.Map).delete()
+        session.delete(session.get(tilemaker.orm.Map, sys.argv[2]))
         session.commit()
-
-    with db.get_session() as session:
-        assert session.query(tilemaker.orm.Band).count() == 0
-        assert session.query(tilemaker.orm.Tile).count() == 0
 
     print("Database successfully deleted.")
 else:

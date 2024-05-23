@@ -61,6 +61,13 @@ class FITSFile(BaseModel):
                         for stokes in StokesParameters:
                             hdus.append((i, stokes.name))
                 else:
+                    if "NAXIS3" in hdu.header:
+                        # Hmm, this is a bit of a problem. Just assume it's stokes?
+                        hdu.header["CTYPE3"] = "STOKES"
+                        hdu.header["CDELT3"] = 1.0
+                        for stokes in StokesParameters:
+                            hdus.append((i, stokes.name))
+
                     hdus.append((i, None))
 
         return [
@@ -150,13 +157,12 @@ class FITSImage:
 
     def read_data(self) -> np.ndarray:
         """
-                Read the data array for the file given the identifier.
-        .
+        Read the data array for the file given the identifier.
 
-                Returns
-                -------
-                np.ndarray
-                    Array read from file.
+        Returns
+        -------
+        np.ndarray
+            Array read from file.
         """
 
         if self.wcs is None:
@@ -180,7 +186,7 @@ class FITSImage:
                 )
         elif identifier is None:
             raise ValueError("You must provide an identifier for a 3D array.")
-
+        
         with fits.open(self.filename) as handle:
             return handle[self.hdu].data[index]
 
@@ -274,7 +280,7 @@ class FITSImage:
                 "Pixel scale in RA and DEC are not equal. Map is not in equi-rectangular projection."
             )
 
-        COORD_TOL = 1e-3 * abs(deg_per_pix_dec)
+        COORD_TOL = 1e-6 * abs(deg_per_pix_dec)
         # Identify the bottom left pixel. Don't forget RA goes right to left.
         # TODO: Be careful about stokes!
         bottom_left = self.wcs.world_to_array_index(
@@ -294,6 +300,18 @@ class FITSImage:
         ra_world_width = top_right[-ra_axis] - bottom_left[-ra_axis]
         dec_world_width = top_right[-dec_axis] - bottom_left[-dec_axis]
 
+        n_pix_ra = self.header[f"NAXIS{ra_axis}"]
+        n_pix_dec = self.header[f"NAXIS{dec_axis}"]
+
+        if ra_world_width < n_pix_ra:
+            ra_world_width = n_pix_ra
+
+        if dec_world_width < n_pix_dec:
+            dec_world_width = n_pix_dec
+
+        print(bottom_left, top_right)
+        print(ra_world_width, dec_world_width)
+
         return ra_world_width, dec_world_width
 
     def world_size_degrees(self) -> tuple[tuple[units.Quantity]]:
@@ -312,6 +330,8 @@ class FITSImage:
             x[0].ra if x[0].ra < 180.0 * units.deg else x[0].ra - 360.0 * units.deg,
             x[0].dec if x[0].dec < 90.0 * units.deg else x[0].dec - 180.0 * units.deg,
         )
+
+        print("World size:", sanitize(top_right), sanitize(bottom_left))
 
         return sanitize(top_right), sanitize(bottom_left)
 
