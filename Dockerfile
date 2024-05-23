@@ -4,8 +4,9 @@ FROM python:3.11
 COPY dist static
 COPY templates templates
 COPY . livetiler
-RUN pip install --no-cache-dir --upgrade "matplotlib"
+
 RUN pip install --no-cache-dir --upgrade ./livetiler
+RUN pip install --no-cache-dir --upgrade "gunicorn"
 RUN pip install --no-cache-dir --upgrade "psycopg[binary,pool]"
 
-CMD ["uvicorn", "--port", "8080", "--host", "0.0.0.0", "tilemaker.server:app"]
+CMD ["gunicorn", "-k", "uvicorn.workers.UvicornWorker", "-w", "8", "tilemaker.server:app", "--bind", "0.0.0.0:8080"]

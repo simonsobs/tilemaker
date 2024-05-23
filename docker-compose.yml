@@ -1,0 +1,51 @@
+services:
+  tilemaker-database:
+    image: postgres:16
+    restart: always
+    container_name: "tilemaker-database"
+    user: postgres
+    volumes:
+      - "database:/var/lib/postgresql/data"
+    environment:
+      POSTGRES_USER: "postgres"
+      POSTGRES_PASSWORD: "secret"
+      POSTGRES_DB: "tilemaker"
+      PGPORT: 5432
+    expose:
+      - 5432
+    networks:
+      - "mynetwork"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready"]
+      interval: 3s
+      timeout: 5s
+      retries: 5
+
+  tilemaker-server:
+    hostname: "tilemaker-hostname"
+    build:
+      context: "."
+      dockerfile: "Dockerfile"
+    container_name: "tilemaker-server"
+    ports:
+      - "9191:8080"
+    stdin_open: true
+    tty: true
+    networks:
+      - "mynetwork"
+    volumes:
+      - type: "bind"
+        source: "/Users/borrow-adm/Documents/Projects/imageviewer/TestImages"
+        target: "/TestImages"
+    environment:
+      - TILEMAKER_STATIC_DIRECTORY=/static
+      - TILEMAKER_DATABASE_URL=postgresql+psycopg://postgres:secret@tilemaker-database:5432/tilemaker
+    depends_on:
+      tilemaker-database:
+        condition: service_healthy
+    
+volumes:
+  database:
+
+networks:
+  mynetwork:
