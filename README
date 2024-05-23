@@ -1,0 +1,8 @@
+Tile Server
+===========
+
+A very simple tile server, backed by a SQL database, for astronomical maps.
+
+The examples directories provide scripts to create 'example' databases out
+of astronomical maps, and they can be served using the included FastAPI
+server.
