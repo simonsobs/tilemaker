@@ -93,7 +93,7 @@ if mode == "create":
                         tile_data = tree.get_tile(depth, x, y)
 
                         if isinstance(tile_data.data, np.ma.MaskedArray):
-                            bytes = tile_data.data.tobytes(order="C", fill_value=np.NaN)
+                            bytes = tile_data.data.tobytes(order="C", fill_value=np.nan)
                         elif tile_data.data is None:
                             bytes = None
                         else:
@@ -149,7 +149,7 @@ else:
             n_tiles_y = 2 ** (level)
 
             tile_array = np.empty((n_tiles_y * band.tile_size, n_tiles_x * band.tile_size), order="C")
-            tile_array[:] = np.NaN
+            tile_array[:] = np.nan
 
             for tile in tiles:
                 x_range = np.s_[tile.x * band.tile_size:(tile.x + 1) * band.tile_size]
