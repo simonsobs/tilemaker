@@ -20,5 +20,9 @@ dependencies = [
     "astropy",
 ]
 
+[project.scripts]
+tilemaker-fits-ingest = "tilemaker.scripts.fits:main"
+tilemaker-remove = "tilemaker.scripts.remove:main"
+
 [tool.ruff.lint]
 extend-select = ["I"]
