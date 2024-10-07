@@ -56,6 +56,12 @@ class Map(MapBase, table=True):
 
     bands: list["Band"] = Relationship(back_populates="map", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
 
+    def __str__(self):
+        return (
+            f"Map with name {self.name} and description {self.description} from telescope {self.telescope} "
+            f"with data release {self.data_release} and season {self.season}; tags: {self.tags}; patch: {self.patch}"
+        )
+
 class MapResponse(MapBase):
     bands: list["Band"]
 
@@ -122,3 +128,9 @@ class Band(SQLModel, table=True):
     tiles: list["Tile"] = Relationship(back_populates="band", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
 
     histogram: "Histogram" = Relationship(back_populates="band", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
+
+    def __str__(self):
+        return (
+            f"Band with frequency {self.frequency} GHz and Stokes parameter {self.stokes_parameter} "
+            f"with {self.levels} levels of tiles available at size {self.tile_size} pixels."
+        )

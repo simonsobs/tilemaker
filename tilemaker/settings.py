@@ -9,8 +9,8 @@ class Settings(BaseSettings):
     database_url: str = "sqlite:///./test.db"
     "SQLAlchemy-appropriate database URL."
 
-    origins: list[str] | None = None
-    add_cors: bool = False
+    origins: list[str] | None = ["*"]
+    add_cors: bool = True
     "Settings for managng CORS middleware; useful for development."
 
     static_directory: str | None = None

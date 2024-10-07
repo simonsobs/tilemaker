@@ -82,6 +82,7 @@ if mode == "create":
                 histogram=H.tobytes(order="C")
             )
 
+
             tile_metadata = []
 
             for depth in range(number_of_layers):
