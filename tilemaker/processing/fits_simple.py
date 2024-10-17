@@ -159,8 +159,6 @@ class FITSSimpleLoader:
             x[0].dec if x[0].dec < 90.0 * units.deg else x[0].dec - 180.0 * units.deg,
         )
 
-        print("World size:", sanitize(top_right), sanitize(bottom_left))
-
         return sanitize(top_right), sanitize(bottom_left)
     
     @property
@@ -197,7 +195,7 @@ class FITSSimpleLoader:
     def number_of_levels(self) -> int:
         if self._number_of_levels is None:
             # Side effect sets _number_of_levels.
-            tile_size = self.tile_size
+            _ = self.tile_size
 
         return self._number_of_levels
 
@@ -229,6 +227,8 @@ class FITSSimpleLoader:
         bottom_left, top_right = self.get_tile(zoom=zoom, x=x, y=y)
 
         enmap_slice = np.array([[bottom_left[1], bottom_left[0]], [top_right[1], top_right[0]]])
+
+        assert np.isclose(abs(bottom_left[0] - top_right[0]), abs(bottom_left[1] - top_right[1]), 1e-5)
 
         return self.read_data().submap(enmap_slice)
 
@@ -286,6 +286,9 @@ class FITSTile:
         data_shape = valid_child.data.shape
         buffer_shape = [d * 2 for d in data_shape]
         data_type = valid_child.data.dtype
+
+        # Buffer shape should be square.
+        assert buffer_shape[0] == buffer_shape[1]
 
         data_buffer = np.zeros(buffer_shape, dtype=data_type)
         mask_buffer = np.zeros(buffer_shape, dtype=bool)
