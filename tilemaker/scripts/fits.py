@@ -2,68 +2,98 @@
 Command-line script for ingesting FITS files into the database.
 """
 
-import argparse as ap
 from pathlib import Path
+
+from pydantic_settings import BaseSettings, CliApp, CliImplicitFlag
 
 QUANTITY_MAP = {
     "uK": "T",
 }
 
-parser = ap.ArgumentParser(
-    description=(
-        "Ingest FITS files into the tilemaker database for serving to clients. "
-        "Important note: this script only uses the first HDU in the FITS file, and assumes "
-        "that it conforms to the ACT/SO data format."
-    )
-)
 
-parser.add_argument(
-    "filename",
-    type=Path,
-    help="The FITS file to ingest into the database.",
-)
+class FitsIngestSettings(BaseSettings):
+    """
+    Ingest FITS files into the tilemaker database for serving to clients.
+    Important note: this script only uses the first HDU in the FITS file, and assumes
+    that it conforms to the ACT/SO data format.
+    """
 
-parser.add_argument(
-    "map_name",
-    type=str,
-    help="The name of the map to create in the database.",
-)
+    filename: Path
+    "The FITS file to ingest into the database"
+    map_name: str
+    "The name of the map to create in the database"
+    description: str = "No description provided."
+    "A description of the map"
+    intensity_only: CliImplicitFlag[bool] = False
+    "Only ingest the intensity data from the FITS file, not polarization"
+    telescope: str | None = None
+    "The telescope that was used to create this map; if not provided we read it from the map"
+    data_release: str | None = None
+    "The data release that this map is part of; if not provided we read it from the map"
+    season: str | None = None
+    "The season that this map was taken in; if not provided we read it from the map"
+    tags: str | None = None
+    "Any tags that are associated with this map; if not provided we read it from the map"
+    patch: str | None = None
+    "The patch of the sky that this map covers; if not provided we read it from the map"
+    frequency: str | None = None
+    "The frequency of the map; if not provided we read it from the map"
 
-parser.add_argument(
-    "--description",
-    type=str,
-    default="No description provided.",
-    help="A description of the map.",
-)
+    def cli_cmd(self) -> None:
+        ingest_map(self)
 
 
-def main():
+def ingest_map(settings: "FitsIngestSettings"):
     import numpy as np
 
     import tilemaker.database as db
     import tilemaker.orm
     from tilemaker.processing.fits_simple import FITSFile, LayerTree
 
-    args = parser.parse_args()
-
     db.create_database_and_tables()
 
-    fits_file = FITSFile(filename=args.filename)
-    map_name = args.map_name
-    description = args.description
+    fits_file = FITSFile(filename=settings.filename)
+    map_name = settings.map_name
+    description = settings.description
 
     with db.get_session() as session:
         add = []
 
         if (map_metadata := session.get(tilemaker.orm.Map, map_name)) is None:
+            telescope = (
+                settings.telescope
+                if settings.telescope is not None
+                else fits_file.individual_trees[0].header.get("TELESCOP", None)
+            )
+            data_release = (
+                settings.data_release
+                if settings.data_release is not None
+                else fits_file.individual_trees[0].header.get("RELEASE", None)
+            )
+            season = (
+                settings.season
+                if settings.season is not None
+                else fits_file.individual_trees[0].header.get("SEASON", None)
+            )
+            tags = (
+                settings.tags
+                if settings.tags is not None
+                else fits_file.individual_trees[0].header.get("ACTTAGS", None)
+            )
+            patch = (
+                settings.patch
+                if settings.patch is not None
+                else fits_file.individual_trees[0].header.get("PATCH", None)
+            )
+
             map_metadata = tilemaker.orm.Map(
                 name=map_name,
                 description=description,
-                telescope=fits_file.individual_trees[0].header.get("TELESCOP", None),
-                data_release=fits_file.individual_trees[0].header.get("RELEASE", None),
-                season=fits_file.individual_trees[0].header.get("SEASON", None),
-                tags=fits_file.individual_trees[0].header.get("ACTTAGS", None),
-                patch=fits_file.individual_trees[0].header.get("PATCH", None),
+                telescope=telescope,
+                data_release=data_release,
+                season=season,
+                tags=tags,
+                patch=patch,
             )
 
             add.append(map_metadata)
@@ -74,6 +104,9 @@ def main():
             exit(1)
 
         for fits_image in fits_file.individual_trees:
+            if settings.intensity_only and fits_image.identifier != "I":
+                continue
+
             tile_size = fits_image.tile_size
             number_of_layers = fits_image.number_of_levels
 
@@ -85,12 +118,18 @@ def main():
 
             top_right, bottom_left = fits_image.world_size_degrees()
 
+            frequency = (
+                settings.frequency
+                if settings.frequency is not None
+                else fits_image.header.get("FREQ", "f000").replace("f", "")
+            )
+
             band = tilemaker.orm.Band(
                 map=map_metadata,
                 tiles_available=True,
                 levels=number_of_layers,
                 tile_size=tile_size,
-                frequency=str(fits_image.header.get("FREQ", "").replace("f", "")),
+                frequency=frequency,
                 stokes_parameter=str(fits_image.identifier),
                 units=str(fits_image.header.get("BUNIT", "")),
                 recommended_cmap_min=-500.0,
@@ -133,7 +172,7 @@ def main():
                         tile_data = tree.get_tile(depth, x, y)
 
                         if isinstance(tile_data.data, np.ma.MaskedArray):
-                            bytes = tile_data.data.tobytes(order="C", fill_value=np.NaN)
+                            bytes = tile_data.data.tobytes(order="C", fill_value=np.nan)
                         elif tile_data.data is None:
                             bytes = None
                         else:
@@ -158,3 +197,7 @@ def main():
             session.commit()
 
             add = []
+
+
+def main():
+    CliApp.run(FitsIngestSettings)
