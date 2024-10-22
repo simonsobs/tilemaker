@@ -14,14 +14,13 @@ RUN npm run build
 # Copy this repo's code into a directory called livetiler
 WORKDIR /
 COPY ./tilemaker livetiler/tilemaker
-COPY ./templates livetiler/templates
 COPY ./pyproject.toml livetiler/pyproject.toml
 
 # Copy client's build into livetiler's static directory, ensuring a clean copy,
 # then delete client repo
 WORKDIR /livetiler
-RUN rm -rf static && mkdir -p static
-RUN cp -r /tileviewer/dist/* static/
+RUN rm -rf tilemaker/server/static && mkdir -p tilemaker/server/static
+RUN cp -r /tileviewer/dist/* tilemaker/server/static 
 RUN rm -rf /tileviewer
 
 RUN pip install --no-cache-dir --upgrade .

@@ -11,13 +11,9 @@ services:
     volumes:
       - type: "bind"
         # Have a local db you want to use? Bind it here
-        source: "./test.db"
-        target: "/test.db"
+        source: "./tilemaker.db"
+        target: "/tilemaker.db"
     environment:
-      # Dockerfile builds the container's server files into a livetiler directory
-      # and the static directory that Dockerfile builds from the client is copied to
-      # the root of livetiler
-      - TILEMAKER_STATIC_DIRECTORY=/livetiler/static
       # Point to your db; in this test case, it's a local directory with a sqlite db
-      # that is bound to /TestDB in the container (see line 15 and beyond)
-      - TILEMAKER_DATABASE_URL=sqlite:////test.db
+      # that is bound to /tilemaker.db in the container (see line 15 and beyond)
+      - TILEMAKER_DATABASE_URL=sqlite:////tilemaker.db

@@ -7,3 +7,4 @@ env/*
 *.swp
 templates/*
 dist/*
+tilemaker/server/static/*
