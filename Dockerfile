@@ -4,8 +4,7 @@ WORKDIR /
 
 # Clone client and build it; also clean cache to ensure no strange vite build issues
 RUN apt-get update && apt-get install -y git nodejs npm
-# TEMP: Should be able to run git clone https://github.com/simonsobs/tileviewer.git after testing and merging
-RUN git clone -b config-changes --single-branch https://github.com/simonsobs/tileviewer.git
+RUN git clone https://github.com/simonsobs/tileviewer.git
 WORKDIR /tileviewer
 RUN npm cache clean --force
 RUN rm -rf node_modules/.vite
