@@ -6,7 +6,7 @@ from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    database_url: str = "sqlite:///./test.db"
+    database_url: str = "sqlite:///./tilemaker.db"
     "SQLAlchemy-appropriate database URL."
 
     origins: list[str] | None = ["*"]
