@@ -1,26 +1,4 @@
 services:
-  tilemaker-database:
-    image: postgres:16
-    restart: always
-    container_name: "tilemaker-database"
-    user: postgres
-    volumes:
-      - "database:/var/lib/postgresql/data"
-    environment:
-      POSTGRES_USER: "postgres"
-      POSTGRES_PASSWORD: "secret"
-      POSTGRES_DB: "tilemaker"
-      PGPORT: 5432
-    expose:
-      - 5432
-    networks:
-      - "mynetwork"
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready"]
-      interval: 3s
-      timeout: 5s
-      retries: 5
-
   tilemaker-server:
     hostname: "tilemaker-hostname"
     build:
@@ -35,17 +13,17 @@ services:
       - "mynetwork"
     volumes:
       - type: "bind"
-        source: "/Users/borrow-adm/Documents/Projects/imageviewer/TestImages"
-        target: "/TestImages"
+        # Have a local db you want to use? Bind it here
+        source: "/Users/jermyers/Documents/TestDB"
+        target: "/TestDB"
     environment:
-      - TILEMAKER_STATIC_DIRECTORY=/static
-      - TILEMAKER_DATABASE_URL=postgresql+psycopg://postgres:secret@tilemaker-database:5432/tilemaker
-    depends_on:
-      tilemaker-database:
-        condition: service_healthy
-    
-volumes:
-  database:
+      # Dockerfile builds the container's server files into a livetiler directory
+      # and the static directory that Dockerfile builds from the client is copied to
+      # the root of livetiler
+      - TILEMAKER_STATIC_DIRECTORY=/livetiler/static
+      # Point to your db; in this test case, it's a local directory with a sqlite db
+      # that is bound to /TestDB in the container (see line 15 and beyond)
+      - TILEMAKER_DATABASE_URL=sqlite:////TestDB/test.db
 
 networks:
   mynetwork:

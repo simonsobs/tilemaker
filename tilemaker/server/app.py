@@ -3,13 +3,13 @@ Main server app.
 """
 
 import io
+import os
 
-from fastapi.templating import Jinja2Templates
 import matplotlib.pyplot as plt
 import numpy as np
-from fastapi import Depends, FastAPI, HTTPException, Request, Response
+from fastapi import Depends, FastAPI, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import RedirectResponse
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from sqlalchemy.orm import subqueryload
@@ -36,15 +36,6 @@ if settings.add_cors:
 # Make a simple static dude
 if settings.static_directory is not None:
     app.mount("/static", StaticFiles(directory=settings.static_directory), name="spa")
-    
-    templates = Jinja2Templates(directory="templates")
-
-    @app.get("/")
-    async def home(request: Request):
-        response = templates.TemplateResponse(
-            "index.html", context={"settings": settings, "request": request}
-        )
-        return response
 
 @app.get("/maps")
 def get_maps():
@@ -166,3 +157,10 @@ def histogram_data(
         )
 
     return response
+
+if settings.static_directory is not None:
+    # catch-all route for static content
+    @app.get("/{full_path:path}")
+    async def serve_spa():
+        index_file_path = os.path.join(settings.static_directory, "index.html")
+        return FileResponse(index_file_path)
