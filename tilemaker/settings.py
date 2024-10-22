@@ -4,6 +4,7 @@ Settings for the project.
 
 from pydantic_settings import BaseSettings
 
+
 class Settings(BaseSettings):
     database_url: str = "sqlite:///./test.db"
     "SQLAlchemy-appropriate database URL."
@@ -18,7 +19,11 @@ class Settings(BaseSettings):
     api_endpoint: str = "./"
     "The location of the API endpoint. Default assumes from the same place as the server."
 
+    use_in_memory_cache: bool = True
+    "Use an in-memory cache for the tiles. Can improve performance by reducing database queries."
+
     class Config:
         env_prefix = "TILEMAKER_"
+
 
 settings = Settings()

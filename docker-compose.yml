@@ -1,21 +1,18 @@
 services:
   tilemaker-server:
-    hostname: "tilemaker-hostname"
     build:
       context: "."
       dockerfile: "Dockerfile"
     container_name: "tilemaker-server"
     ports:
-      - "9191:8080"
+      - "8080:8080"
     stdin_open: true
     tty: true
-    networks:
-      - "mynetwork"
     volumes:
       - type: "bind"
         # Have a local db you want to use? Bind it here
-        source: "/Users/jermyers/Documents/TestDB"
-        target: "/TestDB"
+        source: "./test.db"
+        target: "/test.db"
     environment:
       # Dockerfile builds the container's server files into a livetiler directory
       # and the static directory that Dockerfile builds from the client is copied to
@@ -23,7 +20,4 @@ services:
       - TILEMAKER_STATIC_DIRECTORY=/livetiler/static
       # Point to your db; in this test case, it's a local directory with a sqlite db
       # that is bound to /TestDB in the container (see line 15 and beyond)
-      - TILEMAKER_DATABASE_URL=sqlite:////TestDB/test.db
-
-networks:
-  mynetwork:
+      - TILEMAKER_DATABASE_URL=sqlite:////test.db

@@ -12,7 +12,10 @@ if mode == "model":
     class Parent(SQLModel, table=True):
         id: int = Field(primary_key=True)
 
-        children: list["Child"] = Relationship(back_populates="parent", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
+        children: list["Child"] = Relationship(
+            back_populates="parent",
+            sa_relationship_kwargs={"cascade": "all, delete-orphan"},
+        )
 
     class Child(SQLModel, table=True):
         id: int = Field(primary_key=True)
@@ -57,7 +60,7 @@ elif mode == "alchemy":
 
     engine = create_engine("sqlite:///:memory:")
     Base.metadata.create_all(engine)
-    
+
     with Session(engine) as session:
         parent = Parent()
         children = [Child(parent=parent) for _ in range(3)]

@@ -2,27 +2,28 @@
 It should in princple be possible to just use the wcs to bisect the grid.
 """
 
-#%%
+# %%
 import math
+from enum import Enum
 from pathlib import Path
 from typing import Optional, Union
+
+import numpy as np
+from astropy import units
 from astropy.io import fits
 from astropy.wcs import WCS
-from astropy import units
-from astropy.coordinates import SkyCoord, StokesCoord
-from enum import Enum
-import numpy as np
-import matplotlib.pyplot as plt
 from pixell import enmap
 from pydantic import BaseModel
 
-#%%
+
+# %%
 class StokesParameters(Enum):
     I = 0
     Q = 1
     U = 2
 
-#%%
+
+# %%
 class FITSFile(BaseModel):
     """
     A FITS file that can link out to multiple underlying
@@ -63,11 +64,12 @@ class FITSFile(BaseModel):
                     hdus.append((i, None))
 
         return [
-            FITSSimpleLoader(self.filename, hdu=i, identifier=stokes) for i, stokes in hdus
+            FITSSimpleLoader(self.filename, hdu=i, identifier=stokes)
+            for i, stokes in hdus
         ]
 
 
-#%%
+# %%
 class FITSSimpleLoader:
     filename: Path
     hdu: int
@@ -114,12 +116,16 @@ class FITSSimpleLoader:
                     self._map = base_map[index]
                 elif self.identifier is None:
                     raise ValueError("You must provide an identifier for a 3D array.")
-                
+
         return self._map
-    
+
     def world_width(self) -> tuple[int]:
-        return self.read_data().submap([[-math.pi / 2, -math.pi], [math.pi / 2, math.pi]]).shape
-    
+        return (
+            self.read_data()
+            .submap([[-math.pi / 2, -math.pi], [math.pi / 2, math.pi]])
+            .shape
+        )
+
     def world_full_array_size(self) -> tuple[int]:
         return list(
             reversed(
@@ -129,8 +135,10 @@ class FITSSimpleLoader:
                 ]
             )
         )
-    
-    def histogram_raw_data(self, n_bins: int, min: float, max: float) -> tuple[np.array]:
+
+    def histogram_raw_data(
+        self, n_bins: int, min: float, max: float
+    ) -> tuple[np.array]:
         """
         Generate a histogram of the raw data, with a given range and number of bins.
         """
@@ -141,7 +149,6 @@ class FITSSimpleLoader:
 
         return H, edges
 
-    
     def world_size_degrees(self) -> tuple[tuple[units.Quantity]]:
         """
         Returns the top right and bottom left tuple for ra and dec, supprts
@@ -160,7 +167,7 @@ class FITSSimpleLoader:
         )
 
         return sanitize(top_right), sanitize(bottom_left)
-    
+
     @property
     def tile_size(self) -> int:
         if self._tile_size is not None:
@@ -199,21 +206,20 @@ class FITSSimpleLoader:
 
         return self._number_of_levels
 
-        
     def get_tile(self, zoom: int, x: int, y: int):
         # RA is covered by -180 to 180 degrees, and 2 tiles at zoom 0
         # Dec is covered by -90 to 90 degrees, and 1 tile at zoom 0.
 
-        RA_OFFSET = - np.pi
+        RA_OFFSET = -np.pi
         RA_RANGE = 2.0 * np.pi
-        DEC_OFFSET = - 0.5 * np.pi
+        DEC_OFFSET = -0.5 * np.pi
         DEC_RANGE = np.pi
 
         ra_per_tile = RA_RANGE / 2 ** (zoom + 1)
         dec_per_tile = DEC_RANGE / 2 ** (zoom)
 
-        ra = lambda v: (ra_per_tile * v + RA_OFFSET) 
-        dec = lambda v: (dec_per_tile * v + DEC_OFFSET) 
+        ra = lambda v: (ra_per_tile * v + RA_OFFSET)
+        dec = lambda v: (dec_per_tile * v + DEC_OFFSET)
 
         def pix(v, w):
             return (ra(v), dec(w))
@@ -222,17 +228,22 @@ class FITSSimpleLoader:
         top_right = pix(x + 1, y + 1)
 
         return bottom_left, top_right
-    
+
     def read_tile(self, zoom: int, x: int, y: int) -> np.ndarray:
         bottom_left, top_right = self.get_tile(zoom=zoom, x=x, y=y)
 
-        enmap_slice = np.array([[bottom_left[1], bottom_left[0]], [top_right[1], top_right[0]]])
+        enmap_slice = np.array(
+            [[bottom_left[1], bottom_left[0]], [top_right[1], top_right[0]]]
+        )
 
-        assert np.isclose(abs(bottom_left[0] - top_right[0]), abs(bottom_left[1] - top_right[1]), 1e-5)
+        assert np.isclose(
+            abs(bottom_left[0] - top_right[0]), abs(bottom_left[1] - top_right[1]), 1e-5
+        )
 
         return self.read_data().submap(enmap_slice)
 
-#%%
+
+# %%
 class FITSTile:
     """
     Tile in the QuadTree
@@ -391,9 +402,8 @@ class Layer:
 
                 if (potential_tile == 0.0).all():
                     potential_tile = None
-                
-                node.data = potential_tile
 
+                node.data = potential_tile
 
     def __getitem__(self, key: tuple[int]):
         y, x = key
@@ -403,7 +413,9 @@ class Layer:
 class LayerTree:
     initialized: bool = False
 
-    def __init__(self, number_of_layers: int, image_pixel_size: int, image: FITSSimpleLoader):
+    def __init__(
+        self, number_of_layers: int, image_pixel_size: int, image: FITSSimpleLoader
+    ):
         self.number_of_layers = number_of_layers
         self.image_pixel_size = image_pixel_size
         self.image = image
@@ -431,6 +443,7 @@ class LayerTree:
     def get_tile(self, zoom: int, x: int, y: int) -> FITSTile:
         return self.layers[zoom].nodes[y][x]
 
+
 # #%%
 # new = "/Users/borrow-adm/Documents/Projects/imageviewer/TestImages/sosatp3_carmapMarch2023_f150_muKcmb.fits"
 # old = "/Users/borrow-adm/Documents/Projects/imageviewer/TestImages/act_planck_dr5.01_s08s18_AA_f150_daynight_map.fits"
@@ -443,5 +456,5 @@ class LayerTree:
 #         for y in [0, 1]:
 #             tile = loader.read_tile(1, x, y)
 #             plt.imsave(f"{x}_{y}.png", tile[1, :, :], cmap="viridis", vmin=-500, vmax=500)
-            
+
 # # %%

@@ -5,7 +5,6 @@ a simple operation of splitting the array into smaller and smaller
 chunks.
 """
 
-
 import numpy as np
 from pydantic import BaseModel, validator
 from pydantic_numpy.typing import NpNDArray
@@ -59,9 +58,9 @@ class SimpleMapMaker(BaseModel):
 
             for x in range(0, copy_array.shape[0] // tile_size):
                 for y in range(0, copy_array.shape[1] // tile_size):
-                    x_range = np.s_[x * tile_size:(x + 1) * tile_size]
-                    y_range = np.s_[y * tile_size:(y + 1) * tile_size]
-                    tile = copy_array[ x_range, y_range]
+                    x_range = np.s_[x * tile_size : (x + 1) * tile_size]
+                    y_range = np.s_[y * tile_size : (y + 1) * tile_size]
+                    tile = copy_array[x_range, y_range]
 
                     tiles[f"{x}_{y}"] = tile
 

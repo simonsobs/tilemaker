@@ -186,7 +186,7 @@ class FITSImage:
                 )
         elif identifier is None:
             raise ValueError("You must provide an identifier for a 3D array.")
-        
+
         with fits.open(self.filename) as handle:
             return handle[self.hdu].data[index]
 
@@ -496,8 +496,10 @@ class FITSImage:
             pdb.set_trace()
 
         return np.ma.MaskedArray(data_buffer, mask=mask_buffer)
-    
-    def histogram_raw_data(self, n_bins: int, min: float, max: float) -> tuple[np.array]:
+
+    def histogram_raw_data(
+        self, n_bins: int, min: float, max: float
+    ) -> tuple[np.array]:
         """
         Generate a histogram of the raw data, with a given range and number of bins.
         """
@@ -670,9 +672,8 @@ class Layer:
                 if raw_data is not None:
                     if raw_data.dtype.byteorder != "=":
                         raw_data = raw_data.byteswap().newbyteorder("=")
-                
-                node.data = raw_data
 
+                node.data = raw_data
 
     def __getitem__(self, key: tuple[int]):
         y, x = key

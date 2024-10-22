@@ -14,7 +14,9 @@ RUN npm run build
 
 # Copy this repo's code into a directory called livetiler
 WORKDIR /
-COPY . livetiler
+COPY ./tilemaker livetiler/tilemaker
+COPY ./templates livetiler/templates
+COPY ./pyproject.toml livetiler/pyproject.toml
 
 # Copy client's build into livetiler's static directory, ensuring a clean copy,
 # then delete client repo

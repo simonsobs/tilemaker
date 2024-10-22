@@ -4,6 +4,7 @@ Main server app.
 
 import io
 import os
+from collections.abc import AsyncIterator
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -11,6 +12,7 @@ from fastapi import Depends, FastAPI, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi_cache.coder import PickleCoder
 from pydantic import BaseModel
 from sqlalchemy.orm import subqueryload
 from sqlmodel import select
@@ -20,7 +22,21 @@ from .. import orm
 from ..processing.renderer import Renderer, RenderOptions
 from ..settings import settings
 
-app = FastAPI()
+if settings.use_in_memory_cache:
+    from fastapi_cache import FastAPICache
+    from fastapi_cache.decorator import cache
+
+    async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+        FastAPICache.init(backend="in-memory")
+        yield
+else:
+    lifespan = None
+
+    def cache(func, coder=None, expire=None):
+        return func
+
+
+app = FastAPI(lifespan=lifespan)
 render_options = RenderOptions()
 renderer = Renderer(format="webp")
 
@@ -37,6 +53,7 @@ if settings.add_cors:
 if settings.static_directory is not None:
     app.mount("/static", StaticFiles(directory=settings.static_directory), name="spa")
 
+
 @app.get("/maps")
 def get_maps():
     with db.get_session() as session:
@@ -50,18 +67,20 @@ def get_maps():
 def get_map(map: str):
     with db.get_session() as session:
         stmt = (
-            select(orm.Map).options(subqueryload(orm.Map.bands))
+            select(orm.Map)
+            .options(subqueryload(orm.Map.bands))
             .where(orm.Map.name == map)
         )
         result = session.exec(stmt).one_or_none()
 
     if result is None:
         raise HTTPException(status_code=404, detail="Map not found")
-    
+
     return result
 
 
 @app.get("/maps/{map}/{band}/{level}/{y}/{x}/tile.{ext}")
+@cache(expire=3600, coder=PickleCoder)
 def get_tile(
     map: str,
     band: str,
@@ -69,7 +88,7 @@ def get_tile(
     y: int,
     x: int,
     ext: str,
-    render_options: RenderOptions = Depends(RenderOptions)
+    render_options: RenderOptions = Depends(RenderOptions),
 ):
     """
     Grab an individual tile. This should be very fast, because we use
@@ -81,30 +100,28 @@ def get_tile(
     """
 
     if ext not in ["jpg", "webp", "png"]:
-        raise HTTPException(
-            status_code=400, detail="Not an acceptable extension"
-        )
+        raise HTTPException(status_code=400, detail="Not an acceptable extension")
 
     with db.get_session() as session:
-        stmt = (
-            select(orm.Tile).where(
-                orm.Tile.band_id==int(band),
-                orm.Tile.level==int(level),
-                orm.Tile.y==int(y),
-                orm.Tile.x==int(x),
-            )
+        stmt = select(orm.Tile).where(
+            orm.Tile.band_id == int(band),
+            orm.Tile.level == int(level),
+            orm.Tile.y == int(y),
+            orm.Tile.x == int(x),
         )
 
-        result=session.exec(stmt).one_or_none()
+        result = session.exec(stmt).one_or_none()
 
         # TODO: Optimize this. Maybe in-memory cache?
         tile_size = result.band.tile_size
 
-    if result is None:
+    if result is None or result.data is None:
         raise HTTPException(status_code=404, detail="Tile not found")
-    
-    numpy_buf = np.frombuffer(result.data, dtype=result.data_type).reshape((tile_size, tile_size))
-    
+
+    numpy_buf = np.frombuffer(result.data, dtype=result.data_type).reshape(
+        (tile_size, tile_size)
+    )
+
     if ext == "jpg":
         with io.BytesIO() as output:
             renderer.render(output, numpy_buf, render_options=render_options)
@@ -117,12 +134,10 @@ def get_tile(
         with io.BytesIO() as output:
             renderer.render(output, numpy_buf, render_options=render_options)
             return Response(content=output.getvalue(), media_type="image/png")
-        
+
 
 @app.get("/histograms/{cmap}.png")
-def histograms_cmap(
-    cmap: str
-):
+def histograms_cmap(cmap: str):
     "Get a 8 x 256 image of a colour map for visualisation."
     try:
         color_map = plt.get_cmap(cmap)
@@ -133,30 +148,33 @@ def histograms_cmap(
             return Response(content=output.getvalue(), media_type="image/png")
     except ValueError:
         raise HTTPException(status_code=404, detail="Color map not found")
-    
+
+
 class HistogramResponse(BaseModel):
     edges: list[float]
     histogram: list[int]
     band_id: int
-    
+
+
 @app.get("/histograms/data/{band_id}")
-def histogram_data(
-    band_id: int
-) -> HistogramResponse:
+def histogram_data(band_id: int) -> HistogramResponse:
     with db.get_session() as session:
         stmt = select(orm.Histogram).where(orm.Histogram.band_id == int(band_id))
         result = session.exec(stmt).one_or_none()
 
         if result is None:
             raise HTTPException(status_code=404, detail="Histogram not found")
-        
+
         response = HistogramResponse(
             edges=np.frombuffer(result.edges, dtype=result.edges_data_type).tolist(),
-            histogram=np.frombuffer(result.histogram, dtype=result.histogram_data_type).tolist(),
-            band_id=result.band_id
+            histogram=np.frombuffer(
+                result.histogram, dtype=result.histogram_data_type
+            ).tolist(),
+            band_id=result.band_id,
         )
 
     return response
+
 
 if settings.static_directory is not None:
     # catch-all route for static content

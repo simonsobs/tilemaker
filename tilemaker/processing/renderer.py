@@ -23,7 +23,6 @@ class RenderOptions(BaseModel):
     clip: bool = Field(default=True)
     "Whether to clip values outside of the range, defaults to True."
 
-
     @property
     def norm(self) -> plt.Normalize:
         if self.log_norm:
@@ -48,8 +47,12 @@ class Renderer:
 
         return
 
-
-    def render(self, fname: Union[str, Path, BinaryIO], buffer: np.ndarray, render_options: RenderOptions):
+    def render(
+        self,
+        fname: Union[str, Path, BinaryIO],
+        buffer: np.ndarray,
+        render_options: RenderOptions,
+    ):
         """
         Renders the buffer to the given file.
 

@@ -14,22 +14,14 @@ from sqlmodel import Field, Relationship, SQLModel
 if TYPE_CHECKING:
     from .map import Band
 
+
 class Tile(SQLModel, table=True):
     # All of these (level, x, y, band_id) could potentially
     # be a composite primary key, but we're going to use a
     # single primary key for simplicity.
-    level: int = Field(
-        primary_key=True,
-        description="The level of this tile."
-    )
-    x: int = Field(
-        primary_key=True,
-        description="The x coordinate of this tile."
-    )
-    y: int = Field(
-        primary_key=True,
-        description="The y coordinate of this tile."
-    )
+    level: int = Field(primary_key=True, description="The level of this tile.")
+    x: int = Field(primary_key=True, description="The x coordinate of this tile.")
+    y: int = Field(primary_key=True, description="The y coordinate of this tile.")
     band_id: int = Field(
         primary_key=True,
         foreign_key="band.id",
@@ -40,6 +32,4 @@ class Tile(SQLModel, table=True):
     data_type: str | None = Field(
         description="The data type of the underlying tile data."
     )
-    data: bytes | None = Field(
-        description="The actual tile data."
-    )
+    data: bytes | None = Field(description="The actual tile data.")
