@@ -5,6 +5,9 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools.packages.find]
 exclude = ["templates"]
 
+[tool.setuptools.package-data]
+tilemaker = ["server/static/*", "server/static/assets/*"]
+
 [project]
 name = "tilemaker"
 version = "0.0.1a1"
@@ -18,11 +21,13 @@ dependencies = [
     "uvicorn",
     "matplotlib",
     "astropy",
+    "fastapi-cache2"
 ]
 
 [project.scripts]
 tilemaker-fits-ingest = "tilemaker.scripts.fits:main"
 tilemaker-remove = "tilemaker.scripts.remove:main"
+tilemaker-serve = "tilemaker.scripts.serve:main"
 
 [tool.ruff.lint]
 extend-select = ["I"]

@@ -3,8 +3,8 @@ Main server app.
 """
 
 import io
-import os
 from collections.abc import AsyncIterator
+from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -39,6 +39,7 @@ else:
 app = FastAPI(lifespan=lifespan)
 render_options = RenderOptions()
 renderer = Renderer(format="webp")
+STATIC_DIRECTORY = Path(__file__).parent / "static"
 
 if settings.add_cors:
     app.add_middleware(
@@ -49,9 +50,9 @@ if settings.add_cors:
         allow_headers=["*"],
     )
 
-# Make a simple static dude
-if settings.static_directory is not None:
-    app.mount("/static", StaticFiles(directory=settings.static_directory), name="spa")
+# Mount the built-in client.
+if settings.serve_frontend:
+    app.mount("/static", StaticFiles(directory=STATIC_DIRECTORY), name="spa")
 
 
 @app.get("/maps")
@@ -176,9 +177,11 @@ def histogram_data(band_id: int) -> HistogramResponse:
     return response
 
 
-if settings.static_directory is not None:
+if settings.serve_frontend:
+    # The index.html is actually in static. But if anyone wants to access it
+    # they might go to /, /index.html, /index.htm... etc. So we need to have a
     # catch-all route for static content
     @app.get("/{full_path:path}")
     async def serve_spa():
-        index_file_path = os.path.join(settings.static_directory, "index.html")
+        index_file_path = STATIC_DIRECTORY / "index.html"
         return FileResponse(index_file_path)
