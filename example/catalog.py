@@ -3,9 +3,11 @@ Add a catalog to the database.
 """
 
 import argparse as ap
+
+import numpy as np
+
 import tilemaker.database as db
 import tilemaker.orm
-import numpy as np
 
 parser = ap.ArgumentParser(
     description="Add a catalog to the database. This catalog must be a CSV file with columns 'flux', 'ra', and 'dec'. We skip the first row, assuming it is a header."
@@ -24,10 +26,12 @@ with db.get_session() as session:
     catalog = tilemaker.orm.SourceList(name=args.name, description=args.description)
     session.add(catalog)
 
-    
-    items = [tilemaker.orm.SourceItem(
-        source_list=catalog, flux=row[0], ra=row[1], dec=row[2]
-    ) for row in data]
+    items = [
+        tilemaker.orm.SourceItem(
+            source_list=catalog, flux=row[0], ra=row[1], dec=row[2]
+        )
+        for row in data
+    ]
     session.add_all(items)
 
     session.commit()

@@ -3,7 +3,6 @@ A source table that can be displayed on top of the map.
 """
 
 from sqlmodel import Field, Relationship, SQLModel
-from pydantic import BaseModel
 
 
 class SourceListBase(SQLModel):
@@ -16,7 +15,8 @@ class SourceList(SourceListBase, table=True):
     __tablename__ = "source_list"
 
     sources: list["SourceItem"] = Relationship(
-        back_populates="source_list", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+        back_populates="source_list",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
     )
 
     def __str__(self):
@@ -29,11 +29,13 @@ class SourceItemBase(SQLModel):
     ra: float = Field(description="The right ascension of the source.")
     dec: float = Field(description="The declination of the source.")
 
+
 class SourceItem(SourceItemBase, table=True):
     __tablename__ = "source_item"
 
     source_list_id: int = Field(
-        foreign_key="source_list.id", description="The ID of the source list that this links to."
+        foreign_key="source_list.id",
+        description="The ID of the source list that this links to.",
     )
     source_list: SourceList = Relationship(
         back_populates="sources",
