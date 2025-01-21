@@ -177,6 +177,27 @@ def histogram_data(band_id: int) -> HistogramResponse:
     return response
 
 
+@app.get("/sources")
+def get_sources():
+    with db.get_session() as session:
+        stmt = select(orm.SourceList)
+        results = session.exec(stmt).all()
+
+    return results
+
+
+@app.get("/sources/{id}")
+def get_source_list(id: int):
+    with db.get_session() as session:
+        stmt = select(orm.SourceItem).where(orm.SourceItem.source_list_id == id)
+        result = session.exec(stmt).all()
+
+    if result is None:
+        raise HTTPException(status_code=404, detail="Source not found")
+
+    return result
+
+
 if settings.serve_frontend:
     # The index.html is actually in static. But if anyone wants to access it
     # they might go to /, /index.html, /index.htm... etc. So we need to have a
