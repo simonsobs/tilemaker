@@ -20,7 +20,7 @@ class SourceList(SourceListBase, table=True):
     )
 
     def __str__(self):
-        return f"Source list with name {self.name} and description {self.description}"
+        return f"Source list {self.id} with name {self.name} and description {self.description}"
 
 
 class SourceItemBase(SQLModel):

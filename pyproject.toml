@@ -28,6 +28,7 @@ dependencies = [
 tilemaker-fits-ingest = "tilemaker.scripts.fits:main"
 tilemaker-remove = "tilemaker.scripts.remove:main"
 tilemaker-serve = "tilemaker.scripts.serve:main"
+tilemaker = "tilemaker.client.cli:main"
 
 [tool.ruff.lint]
 extend-select = ["I"]

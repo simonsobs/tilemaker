@@ -15,8 +15,9 @@ if TYPE_CHECKING:
 
 
 class MapBase(SQLModel):
+    id: int = Field(primary_key=True)
     name: str = Field(
-        primary_key=True, max_length=255, description="The name of the map."
+        max_length=255, description="The name of the map."
     )
     description: str | None = Field(
         default=None, max_length=255, description="A description of the map."
@@ -57,7 +58,7 @@ class Map(MapBase, table=True):
 
     def __str__(self):
         return (
-            f"Map with name {self.name} and description {self.description} from telescope {self.telescope} "
+            f"Map {self.id} with name {self.name} and description {self.description} from telescope {self.telescope} "
             f"with data release {self.data_release} and season {self.season}; tags: {self.tags}; patch: {self.patch}"
         )
 
@@ -121,6 +122,6 @@ class Band(SQLModel, table=True):
 
     def __str__(self):
         return (
-            f"Band with frequency {self.frequency} GHz and Stokes parameter {self.stokes_parameter} "
+            f"Band {self.id} with frequency {self.frequency} GHz and Stokes parameter {self.stokes_parameter} "
             f"with {self.levels} levels of tiles available at size {self.tile_size} pixels."
         )
