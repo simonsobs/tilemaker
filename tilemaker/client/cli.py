@@ -49,6 +49,7 @@ def add_iqu(
     tags: str = "",
     patch: str = "",
     frequency: str = "",
+    units: str = ""
 ):
     """
     Add an IQU map to the database.
@@ -68,6 +69,7 @@ def add_iqu(
         tags if tags else None,
         patch if patch else None,
         frequency if frequency else None,
+        units if units else None
     )
 
 

@@ -98,9 +98,16 @@ def add_fits_map(
     tags: str | None = None,
     patch: str | None = None,
     frequency: str | None = None,
+    units: str | None = None
 ):
     QUANTITY_MAP = {
         "uK": "T",
+        "K": "T",
+    }
+
+    BOUNDS_MAP = {
+        "uK": (-500.0, 500.0),
+        "K": (-5e-4, 5e-4),
     }
     
     import numpy as np
@@ -144,6 +151,11 @@ def add_fits_map(
                 if patch is not None
                 else fits_file.individual_trees[0].header.get("PATCH", None)
             )
+            units = (
+                units
+                if units is not None
+                else fits_file.individual_trees[0].header.get("BUNIT", None)
+            )
 
             map_metadata = tilemaker.orm.Map(
                 name=map_name,
@@ -183,6 +195,8 @@ def add_fits_map(
                 else fits_image.header.get("FREQ", "f000").replace("f", "")
             )
 
+            lower_bound, upper_bound = BOUNDS_MAP.get(units, [-500.0, 500.0])
+
             band = tilemaker.orm.Band(
                 map=map_metadata,
                 tiles_available=True,
@@ -190,29 +204,29 @@ def add_fits_map(
                 tile_size=tile_size,
                 frequency=frequency,
                 stokes_parameter=str(fits_image.identifier),
-                units=str(fits_image.header.get("BUNIT", "")),
-                recommended_cmap_min=-500.0,
-                recommended_cmap_max=500.0,
+                units=units,
+                recommended_cmap_min=lower_bound,
+                recommended_cmap_max=upper_bound,
                 recommended_cmap="RdBu_r",
                 bounding_left=bottom_left[0].value,
                 bounding_right=top_right[0].value,
                 bounding_top=top_right[1].value,
                 bounding_bottom=bottom_left[1].value,
                 quantity=QUANTITY_MAP.get(
-                    str(fits_image.header.get("BUNIT", "")), None
+                    units, None
                 ),
             )
 
             console.print("Ingesting:", band)
 
             H, edges = fits_image.histogram_raw_data(
-                n_bins=128, min=-2000.0, max=2000.0
+                n_bins=128, min=lower_bound * 4, max=upper_bound * 4
             )
 
             histogram = tilemaker.orm.Histogram(
                 band=band,
-                start=-2000.0,
-                end=2000.0,
+                start=lower_bound * 4,
+                end=upper_bound * 4,
                 bins=128,
                 edges_data_type=str(edges.dtype),
                 edges=edges.tobytes(order="C"),
