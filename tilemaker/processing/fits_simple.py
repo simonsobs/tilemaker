@@ -53,6 +53,7 @@ class FITSFile(BaseModel):
                     else:
                         for stokes in StokesParameters:
                             hdus.append((i, stokes.name))
+                        continue
                 else:
                     if "NAXIS3" in hdu.header:
                         # Hmm, this is a bit of a problem. Just assume it's stokes?
@@ -60,6 +61,7 @@ class FITSFile(BaseModel):
                         hdu.header["CDELT3"] = 1.0
                         for stokes in StokesParameters:
                             hdus.append((i, stokes.name))
+                        continue
 
                     hdus.append((i, None))
 
@@ -398,7 +400,7 @@ class Layer:
     def extract_data_from_image(self, image: FITSSimpleLoader, image_pixel_size: int):
         for node_row in self.nodes:
             for node in node_row:
-                potential_tile = image.read_tile(node.zoom, node.x, node.y)
+                potential_tile = image.read_tile(node.zoom, node.x, node.y) 
 
                 if (potential_tile == 0.0).all():
                     potential_tile = None
