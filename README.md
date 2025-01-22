@@ -7,6 +7,111 @@ The package includes command-line tools to create databases out
 of astronomical maps, and they can be served using the included FastAPI
 server.
 
+Installation and Usage
+----------------------
+
+It is recommended that you install tilemaker in a virtual environment. You can
+easily manage virtual environments using python's built in `venv` tool or
+using `uv`. We recommend `uv`.
+
+```
+uv venv venv --python=3.12
+source venv/bin/activate
+uv pip install tilemaker
+```
+
+OR if you don't ever want to install anything, just:
+
+```
+uv run tilemaker $OPTIONS
+```
+
+All user-driven usage of `tilemaker` is performed using the `tilemaker`
+command line utility. More information is available using `tilemaker --help`.
+
+Ingesting Data
+--------------
+
+Currently, we support TWO major types of data ingest.
+
+### IQU Maps
+
+IQU maps in the CAR representation can be ingested using 
+
+```
+tilemaker add iqu $FILENAME $NAME
+```
+
+There are lots more options that can be seen with `tilemaker add iqu --help`. For example:
+
+```
+tilemaker add iqu my_file.fits "An Example Map" --intensity-only
+```
+
+To ingest only the `I` component of the map.
+
+### Catalog Ingest
+
+Catalogs in two major formats can be ingested. CSV and JSON, using
+
+```
+tilemaker add catalog $FILENAME $NAME $DESCRIPTION
+```
+
+for example
+
+```
+tilemaker add catalog example.json "Example Catalog" "Description of my example catalog"
+```
+
+#### CSV Layout
+
+CSV files must be in the following format and have extension `.csv`:
+
+```
+# FLUX, RA, DEC
+0.9222,36.03,-18.32
+0.2222,34.22,19.22
+0.9522,26.03,-18.32
+0.2522,24.22,19.22
+```
+
+#### JSON Layout
+
+JSON files must be in the following format and have extension `.json`:
+
+```
+[
+  {
+    "ra": 90.222,
+    "dec": -12.34,
+    "flux": 12.3,
+    "name": "Favourite"
+  },
+  {
+    "ra": 22.222,
+    "dec": -19.34,
+    "flux": 11.3
+  }
+]
+```
+
+
+Viewing Maps
+------------
+
+The pypi and docker images come pre-built with the frontend. You can run the server with
+
+```
+tilemaker serve --port=8080
+```
+
+where the port parameter is optional.
+
+
+Settings
+--------
+
 Settings are configured using a Pydantic settings model, and are defined
 using configuration variables:
 
@@ -21,40 +126,5 @@ using configuration variables:
 - `$TILEMAKER_SERVE_FRONTEND`, a boolean telling you whether or not to serve
   the frontend. If you are using a pre-packaged setup, you should leave this alone.
 
-To set up a simple server, no configuration options are required. The defaults should
-work. You can install a pre-packaged version from the python packaging index:
+To set up a simple server, no configuration options are required. 
 
-```
-uv pip install tilemaker
-```
-
-Ingesting Maps
---------------
-
-Maps can be any valid FITS file. For instance, using the maps from the
-ACT DR5 collection (https://lambda.gsfc.nasa.gov/product/act/actpol_dr5_coadd_maps_get.html),
-one can generate a SQLite database in a fresh shell as follows:
-
-```
-tilemaker-fits-ingest act_dr5.01_s08s18_AA_f150_daynight_map.fits act_dr5.01_s08s18_AA_daynight_map
-```
-
-This will create `tilemaker.db` in your local directory filled with the tiles for the map, and may take
-a minute or so. Note that the database will be a few gigabytes in size (typically there is an
-overhead of around 25-50% over the base map itself, depending on compression). It will create a
-new layer for each band in the file. If you just want to have the intensity, use `--intensity-only`.
-
-To remove maps you can use `tilemaker-remove`, or you can just delete the sqlite database and
-start again.
-
-
-Viewing Maps
-------------
-
-The pypi and docker images come pre-built with the frontend. You can run the server with
-
-```
-tilemaker-serve --host localhost --port 8000
-```
-
-where the two parameters are optional.

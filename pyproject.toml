@@ -21,7 +21,8 @@ dependencies = [
     "uvicorn",
     "matplotlib",
     "astropy",
-    "fastapi-cache2"
+    "fastapi-cache2",
+    "typer"
 ]
 
 [project.scripts]
