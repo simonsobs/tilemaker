@@ -4,6 +4,14 @@ CLI components (using typer)
 
 import typer
 from tilemaker import orm
+from rich.console import Console
+from pathlib import Path
+
+from . import search
+from . import delete
+from . import add
+
+CONSOLE = Console()
 
 APP = typer.Typer()
 
@@ -17,45 +25,51 @@ add_app = typer.Typer(help="Add products to the database")
 APP.add_typer(add_app, name="add")
 
 
-def select_all(model):
-    from tilemaker import database as db
-    from sqlmodel import select
-
-    with db.get_session() as session:
-        stmt = select(model)
-        results = session.exec(stmt).all()
-
-    return results
-
 
 @add_app.command("catalog")
 def add_catalog(catalog: str, name: str, description: str):
     """
     Add a catalog to the database.
     """
-    import numpy as np
+    
+    global CONSOLE
 
-    from tilemaker import database as db
-    from tilemaker import orm
+    add.add_catalog(catalog, name, description, CONSOLE)
 
-    data = np.loadtxt(catalog, delimiter=",", skiprows=1)
 
-    db.create_database_and_tables()
-    with db.get_session() as session:
-        catalog = orm.SourceList(name=name, description=description)
-        session.add(catalog)
+@add_app.command("iqu", help="Add an IQU map to the database (FITS)")
+def add_iqu(
+    filename: Path,
+    map_name: str,
+    description: str = "No description provided",
+    intensity_only: bool = False,
+    telescope: str = "",
+    data_release: str = "",
+    season: str = "",
+    tags: str = "",
+    patch: str = "",
+    frequency: str = "",
+):
+    """
+    Add an IQU map to the database.
+    """
 
-        items = [
-            orm.SourceItem(
-                source_list=catalog, flux=row[0], ra=row[1], dec=row[2]
-            )
-            for row in data
-        ]
-        session.add_all(items)
+    global CONSOLE
 
-        session.commit()
+    add.add_fits_map(
+        filename,
+        map_name,
+        CONSOLE,
+        description,
+        intensity_only,
+        telescope if telescope else None,
+        data_release if data_release else None,
+        season if season else None,
+        tags if tags else None,
+        patch if patch else None,
+        frequency if frequency else None,
+    )
 
-    print("Catalog successfully added.")
 
 
 @delete_app.command("map")
@@ -63,66 +77,31 @@ def delete_map(id: int):
     """
     Delete a map from the database.
     """
-    from tilemaker import database as db
-    from tilemaker import orm
-    from sqlmodel import select
 
-    with db.get_session() as session:
-        stmt = select(orm.Map).where(orm.Map.id == id)
-        result = session.exec(stmt).one_or_none()
+    global CONSOLE
 
-        if result is None:
-            print(f"Map with ID {id} not found.")
-            return
-
-        session.delete(result)
-        session.commit()
-
-    print(f"Map with ID {id} deleted.")
+    delete.delete_map(id, CONSOLE)
 
 @delete_app.command("band")
 def delete_band(id: int):
     """
     Delete a band from the database.
     """
-    from tilemaker import database as db
-    from tilemaker import orm
-    from sqlmodel import select
 
-    with db.get_session() as session:
-        stmt = select(orm.Band).where(orm.Band.id == id)
-        result = session.exec(stmt).one_or_none()
+    global CONSOLE
 
-        if result is None:
-            print(f"Band with ID {id} not found.")
-            return
+    delete.delete_band(id, CONSOLE)
 
-        session.delete(result)
-        session.commit()
-
-    print(f"Band with ID {id} deleted.")
 
 @delete_app.command("catalog")
 def delete_catalog(id: int):
     """
     Delete a catalog from the database.
     """
-    from tilemaker import database as db
-    from tilemaker import orm
-    from sqlmodel import select
 
-    with db.get_session() as session:
-        stmt = select(orm.SourceList).where(orm.SourceList.id == id)
-        result = session.exec(stmt).one_or_none()
+    global CONSOLE
 
-        if result is None:
-            print(f"Catalog with ID {id} not found.")
-            return
-
-        session.delete(result)
-        session.commit()
-
-    print(f"Catalog with ID {id} deleted.")
+    delete.delete_catalog(id, CONSOLE)
 
 
 @list_app.command("bands")
@@ -130,30 +109,32 @@ def list_bands():
     """
     List all bands in the database.
     """
-    bands = select_all(orm.Band)
 
-    for band in bands:
-        print(band)
+    global CONSOLE
+
+    search.print_bands(CONSOLE)
 
 @list_app.command("maps")
 def list_maps():
     """
     List all maps in the database.
     """
-    maps = select_all(orm.Map)
 
-    for map in maps:
-        print(map)
+    global CONSOLE
+
+    search.print_maps(CONSOLE)
+
 
 @list_app.command("catalogs")
 def list_catalogs():
     """
     List all maps in the database.
     """
-    catalogs = select_all(orm.SourceList)
+    
+    global CONSOLE
 
-    for catalog in catalogs:
-        print(catalog)
+    search.print_catalogs(CONSOLE)
+   
 
 @APP.command()
 def serve(host: str="127.0.0.1", port: int=8000):

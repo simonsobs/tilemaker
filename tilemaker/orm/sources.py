@@ -28,6 +28,7 @@ class SourceItemBase(SQLModel):
     flux: float = Field(description="The flux of the source.")
     ra: float = Field(description="The right ascension of the source.")
     dec: float = Field(description="The declination of the source.")
+    name: str | None = Field(default=None, description="The name of the source.")
 
 
 class SourceItem(SourceItemBase, table=True):

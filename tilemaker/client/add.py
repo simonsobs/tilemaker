@@ -1,49 +1,108 @@
 """
-Command-line script for ingesting FITS files into the database.
+Add various data structures to the database.
 """
 
+from tilemaker import orm
+from pydantic import BaseModel, TypeAdapter
+from rich.console import Console
 from pathlib import Path
 
-from pydantic_settings import BaseSettings, CliApp, CliImplicitFlag
+def _add_catalog_csv(filename: str, name: str, description: str, console: Console):
+    import numpy as np
 
-QUANTITY_MAP = {
-    "uK": "T",
-}
+    from tilemaker import database as db
+
+    data = np.loadtxt(filename, delimiter=",", skiprows=1)
+
+    db.create_database_and_tables()
+    with db.get_session() as session:
+        catalog = orm.SourceList(name=name, description=description)
+        session.add(catalog)
+
+        items = [
+            orm.SourceItem(
+                source_list=catalog, flux=row[0], ra=row[1], dec=row[2]
+            )
+            for row in data
+        ]
+        session.add_all(items)
+
+        session.commit()
+
+        console.print(f"Catalog succesfully added (id: {catalog.id}).")
+
+    return
 
 
-class FitsIngestSettings(BaseSettings):
+class CatalogIngestItem(BaseModel):
+    flux: float
+    ra: float
+    dec: float
+    name: str | None = None
+
+
+def _add_catalog_json(filename: str, name: str, description: str, console: Console):
     """
-    Ingest FITS files into the tilemaker database for serving to clients.
-    Important note: this script only uses the first HDU in the FITS file, and assumes
-    that it conforms to the ACT/SO data format.
+    De-serialize a JSON file into a catalog.
+    """
+    from tilemaker import database as db
+
+    with open(filename, "r") as f:
+        data = TypeAdapter(list[CatalogIngestItem]).validate_json(f.read())
+
+    db.create_database_and_tables()
+    with db.get_session() as session:
+        catalog = orm.SourceList(name=name, description=description)
+        session.add(catalog)
+
+        items = [
+            orm.SourceItem(
+                source_list=catalog, flux=item.flux, ra=item.ra, dec=item.dec, name=item.name
+            )
+            for item in data
+        ]
+        session.add_all(items)
+
+        session.commit()
+
+        console.print(f"Catalog succesfully added (id: {catalog.id}).")
+
+    return
+
+
+def add_catalog(filename: str, name: str, description: str, console: Console):
+    """
+    Add a catalog to the database.
     """
 
-    filename: Path
-    "The FITS file to ingest into the database"
-    map_name: str
-    "The name of the map to create in the database"
-    description: str = "No description provided."
-    "A description of the map"
-    intensity_only: CliImplicitFlag[bool] = False
-    "Only ingest the intensity data from the FITS file, not polarization"
-    telescope: str | None = None
-    "The telescope that was used to create this map; if not provided we read it from the map"
-    data_release: str | None = None
-    "The data release that this map is part of; if not provided we read it from the map"
-    season: str | None = None
-    "The season that this map was taken in; if not provided we read it from the map"
-    tags: str | None = None
-    "Any tags that are associated with this map; if not provided we read it from the map"
-    patch: str | None = None
-    "The patch of the sky that this map covers; if not provided we read it from the map"
-    frequency: str | None = None
-    "The frequency of the map; if not provided we read it from the map"
+    if filename.endswith(".csv"):
+        _add_catalog_csv(filename, name, description, console)
+    elif filename.endswith(".json"):
+        _add_catalog_json(filename, name, description, console)
+    else:
+        console.print("Catalog must be a CSV or JSON file")
 
-    def cli_cmd(self) -> None:
-        ingest_map(self)
+    return
 
 
-def ingest_map(settings: "FitsIngestSettings"):
+
+def add_fits_map(
+    filename: Path,
+    map_name: str,
+    console: Console,
+    description: str = "No description provided",
+    intensity_only: bool = False,
+    telescope: str | None = None,
+    data_release: str | None = None,
+    season: str | None = None,
+    tags: str | None = None,
+    patch: str | None = None,
+    frequency: str | None = None,
+):
+    QUANTITY_MAP = {
+        "uK": "T",
+    }
+    
     import numpy as np
 
     import tilemaker.database as db
@@ -52,37 +111,37 @@ def ingest_map(settings: "FitsIngestSettings"):
 
     db.create_database_and_tables()
 
-    fits_file = FITSFile(filename=settings.filename)
-    map_name = settings.map_name
-    description = settings.description
+    fits_file = FITSFile(filename=filename)
+    map_name = map_name
+    description = description
 
     with db.get_session() as session:
         add = []
 
         if (map_metadata := session.get(tilemaker.orm.Map, map_name)) is None:
             telescope = (
-                settings.telescope
-                if settings.telescope is not None
+                telescope
+                if telescope is not None
                 else fits_file.individual_trees[0].header.get("TELESCOP", None)
             )
             data_release = (
-                settings.data_release
-                if settings.data_release is not None
+                data_release
+                if data_release is not None
                 else fits_file.individual_trees[0].header.get("RELEASE", None)
             )
             season = (
-                settings.season
-                if settings.season is not None
+                season
+                if season is not None
                 else fits_file.individual_trees[0].header.get("SEASON", None)
             )
             tags = (
-                settings.tags
-                if settings.tags is not None
+                tags
+                if tags is not None
                 else fits_file.individual_trees[0].header.get("ACTTAGS", None)
             )
             patch = (
-                settings.patch
-                if settings.patch is not None
+                patch
+                if patch is not None
                 else fits_file.individual_trees[0].header.get("PATCH", None)
             )
 
@@ -98,13 +157,13 @@ def ingest_map(settings: "FitsIngestSettings"):
 
             add.append(map_metadata)
 
-            print("Found map:", map_metadata)
+            console.print("Found map:", map_metadata)
         else:
-            print(f"Map {map_name} already exists in the database")
-            exit(1)
+            console.print(f"Map {map_name} already exists in the database")
+            return
 
         for fits_image in fits_file.individual_trees:
-            if settings.intensity_only and fits_image.identifier != "I":
+            if intensity_only and fits_image.identifier != "I":
                 continue
 
             tile_size = fits_image.tile_size
@@ -119,8 +178,8 @@ def ingest_map(settings: "FitsIngestSettings"):
             top_right, bottom_left = fits_image.world_size_degrees()
 
             frequency = (
-                settings.frequency
-                if settings.frequency is not None
+                frequency
+                if frequency is not None
                 else fits_image.header.get("FREQ", "f000").replace("f", "")
             )
 
@@ -144,7 +203,7 @@ def ingest_map(settings: "FitsIngestSettings"):
                 ),
             )
 
-            print("Ingesting:", band)
+            console.print("Ingesting:", band)
 
             H, edges = fits_image.histogram_raw_data(
                 n_bins=128, min=-2000.0, max=2000.0
@@ -197,7 +256,3 @@ def ingest_map(settings: "FitsIngestSettings"):
             session.commit()
 
             add = []
-
-
-def main():
-    CliApp.run(FitsIngestSettings)
