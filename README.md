@@ -23,7 +23,7 @@ uv pip install tilemaker
 OR if you don't ever want to install anything, just:
 
 ```
-uv run tilemaker $OPTIONS
+uv run --python=3.12 --with tilemaker tilemaker $OPTIONS
 ```
 
 All user-driven usage of `tilemaker` is performed using the `tilemaker`
