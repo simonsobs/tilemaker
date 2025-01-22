@@ -10,6 +10,41 @@ QUANTITY_MAP = {
     "uK": "T",
 }
 
+cmap_min_dict  = {
+    "I" : -500.0,
+    "Q" : -20.0,
+    "U" : -20.0,
+    "kappa" : -0.1,
+    "compton_y": -1e-5, ##need to check what cmap range is best
+    "mask": 0
+}
+
+cmap_max_dict  = {
+    "I" : 500.0,
+    "Q" : 20.0,
+    "U" : 20.0,
+    "kappa" : 0.1,
+    "compton_y": 1e-5, ##need to check what cmap range is best
+    "mask": 1.
+}
+
+hist_min_dict = {
+    "I" : -2000.0,
+    "Q" : -80.0,
+    "U" : -80.0,
+    "kappa": -0.4,
+    "compton_y" : -4e-5,
+    "mask" : 0.,
+}
+
+hist_max_dict = {
+    "I": 2000.0,
+    "Q": 80.0,
+    "U": 80.0,
+    "kappa" : 0.4,
+    "compton_y" : 4e-5,
+    "mask" : 1.,
+}
 
 class FitsIngestSettings(BaseSettings):
     """
@@ -24,8 +59,10 @@ class FitsIngestSettings(BaseSettings):
     "The name of the map to create in the database"
     description: str = "No description provided."
     "A description of the map"
-    intensity_only: CliImplicitFlag[bool] = False
-    "Only ingest the intensity data from the FITS file, not polarization"
+    #intensity_only: CliImplicitFlag[bool] = False
+    #"Only ingest the intensity data from the FITS file, not polarization"
+    map_type: str | None = None
+    "Type of map. Either cmb, kappa, compton_y map or mask."
     telescope: str | None = None
     "The telescope that was used to create this map; if not provided we read it from the map"
     data_release: str | None = None
@@ -52,9 +89,10 @@ def ingest_map(settings: "FitsIngestSettings"):
 
     db.create_database_and_tables()
 
-    fits_file = FITSFile(filename=settings.filename)
+    fits_file = FITSFile(filename=settings.filename, map_type=settings.map_type)
     map_name = settings.map_name
     description = settings.description
+    map_type = settings.map_type
 
     with db.get_session() as session:
         add = []
@@ -89,6 +127,7 @@ def ingest_map(settings: "FitsIngestSettings"):
             map_metadata = tilemaker.orm.Map(
                 name=map_name,
                 description=description,
+                map_type=map_type,
                 telescope=telescope,
                 data_release=data_release,
                 season=season,
@@ -104,8 +143,8 @@ def ingest_map(settings: "FitsIngestSettings"):
             exit(1)
 
         for fits_image in fits_file.individual_trees:
-            if settings.intensity_only and fits_image.identifier != "I":
-                continue
+            #if settings.intensity_only and fits_image.identifier != "I": ##disabling this since we do not have the intensity_only flag
+            #    continue
 
             tile_size = fits_image.tile_size
             number_of_layers = fits_image.number_of_levels
@@ -123,17 +162,20 @@ def ingest_map(settings: "FitsIngestSettings"):
                 if settings.frequency is not None
                 else fits_image.header.get("FREQ", "f000").replace("f", "")
             )
-
+            
+            rec_cmap_min = cmap_min_dict[fits_image.identifier]
+            rec_cmap_max = cmap_max_dict[fits_image.identifier]
+            
             band = tilemaker.orm.Band(
                 map=map_metadata,
                 tiles_available=True,
                 levels=number_of_layers,
                 tile_size=tile_size,
                 frequency=frequency,
-                stokes_parameter=str(fits_image.identifier),
+                map_type=str(fits_image.identifier),
                 units=str(fits_image.header.get("BUNIT", "")),
-                recommended_cmap_min=-500.0,
-                recommended_cmap_max=500.0,
+                recommended_cmap_min=rec_cmap_min,  ##changed hardcoded value
+                recommended_cmap_max=rec_cmap_max, ##changed hardcoded value
                 recommended_cmap="RdBu_r",
                 bounding_left=bottom_left[0].value,
                 bounding_right=top_right[0].value,
@@ -146,15 +188,20 @@ def ingest_map(settings: "FitsIngestSettings"):
 
             print("Ingesting:", band)
 
+            hist_min = hist_min_dict[fits_image.identifier]
+            hist_max = hist_max_dict[fits_image.identifier]
+            n_bins = 128 
+            
+            ## do we need diff n_bins depending on map_type?? don't know!!
             H, edges = fits_image.histogram_raw_data(
-                n_bins=128, min=-2000.0, max=2000.0
+                n_bins=n_bins, min=hist_min, max=hist_max
             )
 
             histogram = tilemaker.orm.Histogram(
                 band=band,
-                start=-2000.0,
-                end=2000.0,
-                bins=128,
+                start=hist_min,
+                end=hist_max,
+                bins=n_bins,
                 edges_data_type=str(edges.dtype),
                 edges=edges.tobytes(order="C"),
                 histogram_data_type=str(H.dtype),

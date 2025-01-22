@@ -17,11 +17,18 @@ from pydantic import BaseModel
 
 
 # %%
+class MapTypeParameters(Enum):
+    I = 0
+    Q = 1
+    U = 2
+    kappa = 0
+    compton_y = 0
+    mask = 0
+
 class StokesParameters(Enum):
     I = 0
     Q = 1
     U = 2
-
 
 # %%
 class FITSFile(BaseModel):
@@ -32,6 +39,8 @@ class FITSFile(BaseModel):
 
     filename: Path
     "The filename of the FITS file."
+    map_type: str
+    "The type of map we are loading."
 
     @property
     def individual_trees(self) -> list["FITSSimpleLoader"]:
@@ -45,27 +54,39 @@ class FITSFile(BaseModel):
         hdus = []
         with fits.open(self.filename) as handle:
             for i, hdu in enumerate(handle):
-                if "CTYPE3" in hdu.header:
-                    if hdu.header["CTYPE3"] != "STOKES":
-                        raise ValueError(
-                            f"Unknown CTYPE3 {hdu.header['CTYPE3']} in HDU {i}."
-                        )
+                if self.map_type == "cmb":
+                    if "CTYPE3" in hdu.header:
+                        if hdu.header["CTYPE3"] != "STOKES":
+                            raise ValueError(
+                                f"Unknown CTYPE3 {hdu.header['CTYPE3']} in HDU {i}."
+                            )
+                        else:
+                            for stokes in StokesParameters:
+                                hdus.append((i, stokes.name))
                     else:
-                        for stokes in StokesParameters:
-                            hdus.append((i, stokes.name))
-                else:
-                    if "NAXIS3" in hdu.header:
-                        # Hmm, this is a bit of a problem. Just assume it's stokes?
-                        hdu.header["CTYPE3"] = "STOKES"
-                        hdu.header["CDELT3"] = 1.0
-                        for stokes in StokesParameters:
-                            hdus.append((i, stokes.name))
+                        if "NAXIS3" in hdu.header:
+                            # Hmm, this is a bit of a problem. Just assume it's stokes?
+                            hdu.header["CTYPE3"] = "STOKES"
+                            hdu.header["CDELT3"] = 1.0
+                            for stokes in StokesParameters:
+                                hdus.append((i, stokes.name))
 
-                    hdus.append((i, None))
+                        hdus.append((i, None))
+                elif self.map_type == "kappa":
+                    hdus.append((i,"kappa"))
+                elif self.map_type == "compton_y":
+                    hdus.append((i,"compton_y"))
+                elif self.map_type == "mask":
+                    hdus.append((i,"mask"))
+                else:
+                    raise ValueError(
+                                f"Unknown map type {self.map_type} given as a setting."
+                            )
+                    
 
         return [
-            FITSSimpleLoader(self.filename, hdu=i, identifier=stokes)
-            for i, stokes in hdus
+            FITSSimpleLoader(self.filename, hdu=i, identifier=maps_types)
+            for i, maps_types in hdus
         ]
 
 
@@ -112,7 +133,8 @@ class FITSSimpleLoader:
                 if isinstance(self.identifier, int):
                     self._map = base_map[self.identifier]
                 elif isinstance(self.identifier, str):
-                    index = StokesParameters[self.identifier].value
+                    if self.identifier in ["I","Q","U"]:
+                        index = MapTypeParameters[self.identifier].value # I, kappa, compton_y and mask return index 0, Q returns index 1, U returns index 2
                     self._map = base_map[index]
                 elif self.identifier is None:
                     raise ValueError("You must provide an identifier for a 3D array.")

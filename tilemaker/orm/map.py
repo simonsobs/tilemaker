@@ -21,6 +21,9 @@ class MapBase(SQLModel):
     description: str | None = Field(
         default=None, max_length=255, description="A description of the map."
     )
+    map_type: str | None = Field(
+        default=None, max_length=20, description="Type of map. One of cmb, kappa, compton_y or mask."
+    )
     telescope: str | None = Field(
         default=None,
         max_length=255,
@@ -58,7 +61,8 @@ class Map(MapBase, table=True):
     def __str__(self):
         return (
             f"Map with name {self.name} and description {self.description} from telescope {self.telescope} "
-            f"with data release {self.data_release} and season {self.season}; tags: {self.tags}; patch: {self.patch}"
+            f"with data release {self.data_release} and season {self.season}; tags: {self.tags}; patch: {self.patch};"
+            f"type of map {self.map_type}"
         )
 
 
@@ -84,8 +88,8 @@ class Band(SQLModel, table=True):
     frequency: float | None = Field(
         default=None, description="The frequency of this band in GHz"
     )
-    stokes_parameter: str | None = Field(
-        default=None, max_length=255, description="The Stokes parameter of this band."
+    map_type: str | None = Field(
+        default=None, max_length=255, description="The map type of this band."
     )
 
     quantity: str | None = Field(
@@ -121,6 +125,6 @@ class Band(SQLModel, table=True):
 
     def __str__(self):
         return (
-            f"Band with frequency {self.frequency} GHz and Stokes parameter {self.stokes_parameter} "
+            f"Band with frequency {self.frequency} GHz and map type {self.map_type} "
             f"with {self.levels} levels of tiles available at size {self.tile_size} pixels."
         )
