@@ -400,7 +400,7 @@ class Layer:
     def extract_data_from_image(self, image: FITSSimpleLoader, image_pixel_size: int):
         for node_row in self.nodes:
             for node in node_row:
-                potential_tile = image.read_tile(node.zoom, node.x, node.y) 
+                potential_tile = image.read_tile(node.zoom, node.x, node.y)
 
                 if (potential_tile == 0.0).all():
                     potential_tile = None

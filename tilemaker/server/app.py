@@ -8,6 +8,7 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
+from astropy.io import fits
 from fastapi import Depends, FastAPI, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
@@ -16,6 +17,8 @@ from fastapi_cache.coder import PickleCoder
 from pydantic import BaseModel
 from sqlalchemy.orm import subqueryload
 from sqlmodel import select
+
+from tilemaker.processing.extractor import extract
 
 from .. import database as db
 from .. import orm
@@ -78,6 +81,45 @@ def get_map(map: str):
         raise HTTPException(status_code=404, detail="Map not found")
 
     return result
+
+
+@app.get("/maps/{map}/{band}/submap/{left}/{right}/{top}/{bottom}/image.{ext}")
+def get_submap(
+    map: str,
+    band: int,
+    left: float,
+    right: float,
+    top: float,
+    bottom: float,
+    ext: str,
+    render_options: RenderOptions = Depends(RenderOptions),
+):
+    """
+    Get a submap of the specified band.
+    """
+
+    if ext not in ["jpg", "webp", "png", "fits"]:
+        raise HTTPException(status_code=400, detail="Not an acceptable extension")
+
+    submap = extract(band_id=band, left=left, right=right, top=top, bottom=bottom)
+
+    if ext == "jpg":
+        with io.BytesIO() as output:
+            renderer.render(output, submap, render_options=render_options)
+            return Response(content=output.getvalue(), media_type="image/jpg")
+    elif ext == "webp":
+        with io.BytesIO() as output:
+            renderer.render(output, submap, render_options=render_options)
+            return Response(content=output.getvalue(), media_type="image/webp")
+    elif ext == "png":
+        with io.BytesIO() as output:
+            renderer.render(output, submap, render_options=render_options)
+            return Response(content=output.getvalue(), media_type="image/png")
+    elif ext == "fits":
+        with io.BytesIO() as output:
+            hdu = fits.PrimaryHDU(submap)
+            hdu.writeto(output)
+            return Response(content=output.getvalue(), media_type="image/fits")
 
 
 @app.get("/maps/{map}/{band}/{level}/{y}/{x}/tile.{ext}")

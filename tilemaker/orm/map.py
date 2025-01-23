@@ -7,6 +7,7 @@ map correpsonds to a single frequency band.
 
 from typing import TYPE_CHECKING
 
+import astropy.wcs
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
@@ -16,9 +17,7 @@ if TYPE_CHECKING:
 
 class MapBase(SQLModel):
     id: int = Field(primary_key=True)
-    name: str = Field(
-        max_length=255, description="The name of the map."
-    )
+    name: str = Field(max_length=255, description="The name of the map.")
     description: str | None = Field(
         default=None, max_length=255, description="A description of the map."
     )
@@ -125,3 +124,33 @@ class Band(SQLModel, table=True):
             f"Band {self.id} with frequency {self.frequency} GHz and Stokes parameter {self.stokes_parameter} "
             f"with {self.levels} levels of tiles available at size {self.tile_size} pixels."
         )
+
+    @property
+    def wcs(self, level: int | None = None) -> astropy.wcs.WCS:
+        """
+        Get the WCS solution for this band.  Note that we don't expect this to be the same
+        layout as the original map file; we have effecftively re-projected the map into a whole
+
+        """
+
+        if level is None:
+            level = self.levels
+
+        pix_x = 2**level * self.tile_size
+        pix_y = 2 ** (level - 1) * self.tile_size
+
+        crpix = [pix_x / 2, pix_y / 2]
+        crdelt = [-(360) / pix_x, (180) / pix_y]
+        crval = [0.0, 0.0]
+
+        wcs = astropy.wcs.WCS(
+            naxis=2,
+        )
+
+        wcs.wcs.crpix = crpix
+        wcs.wcs.cdelt = crdelt
+        wcs.wcs.crval = crval
+        wcs.wcs.ctype = ["RA---CAR", "DEC--CAR"]
+        wcs.wcs.cunit = ["deg", "deg"]
+
+        return wcs

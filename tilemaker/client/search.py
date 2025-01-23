@@ -3,12 +3,15 @@ Core functions for searching for individual components that can be deleted.
 """
 
 from rich.console import Console
-from tilemaker import orm
 from sqlalchemy.orm import subqueryload
 
+from tilemaker import orm
+
+
 def select_all(model, load_children=None):
-    from tilemaker import database as db
     from sqlmodel import select
+
+    from tilemaker import database as db
 
     with db.get_session() as session:
         if load_children is not None:
@@ -58,6 +61,7 @@ def print_bands(console: Console):
                 "tile_size": band.tile_size,
             }
         )
+
 
 def print_maps(console: Console):
     """

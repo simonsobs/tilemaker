@@ -2,14 +2,12 @@
 CLI components (using typer)
 """
 
-import typer
-from tilemaker import orm
-from rich.console import Console
 from pathlib import Path
 
-from . import search
-from . import delete
-from . import add
+import typer
+from rich.console import Console
+
+from . import add, delete, search
 
 CONSOLE = Console()
 
@@ -25,13 +23,12 @@ add_app = typer.Typer(help="Add products to the database")
 APP.add_typer(add_app, name="add")
 
 
-
 @add_app.command("catalog")
 def add_catalog(catalog: str, name: str, description: str):
     """
     Add a catalog to the database.
     """
-    
+
     global CONSOLE
 
     add.add_catalog(catalog, name, description, CONSOLE)
@@ -49,7 +46,7 @@ def add_iqu(
     tags: str = "",
     patch: str = "",
     frequency: str = "",
-    units: str = ""
+    units: str = "",
 ):
     """
     Add an IQU map to the database.
@@ -69,9 +66,8 @@ def add_iqu(
         tags if tags else None,
         patch if patch else None,
         frequency if frequency else None,
-        units if units else None
+        units if units else None,
     )
-
 
 
 @delete_app.command("map")
@@ -83,6 +79,7 @@ def delete_map(id: int):
     global CONSOLE
 
     delete.delete_map(id, CONSOLE)
+
 
 @delete_app.command("band")
 def delete_band(id: int):
@@ -116,6 +113,7 @@ def list_bands():
 
     search.print_bands(CONSOLE)
 
+
 @list_app.command("maps")
 def list_maps():
     """
@@ -132,14 +130,14 @@ def list_catalogs():
     """
     List all maps in the database.
     """
-    
+
     global CONSOLE
 
     search.print_catalogs(CONSOLE)
-   
+
 
 @APP.command()
-def serve(host: str="127.0.0.1", port: int=8000):
+def serve(host: str = "127.0.0.1", port: int = 8000):
     """
     Start the development/user-hosted server for tilemaker.
     """

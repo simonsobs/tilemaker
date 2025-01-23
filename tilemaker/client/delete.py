@@ -2,15 +2,18 @@
 Deletion of various data structures from the database.
 """
 
-from tilemaker import orm
 from rich.console import Console
+
+from tilemaker import orm
+
 
 def delete_one_by_id(id: int, model) -> None:
     """
     Delete a single row from the database by ID.
     """
-    from tilemaker import database as db
     from sqlmodel import select
+
+    from tilemaker import database as db
 
     with db.get_session() as session:
         stmt = select(model).where(model.id == id)

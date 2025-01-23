@@ -2,10 +2,13 @@
 Add various data structures to the database.
 """
 
-from tilemaker import orm
+from pathlib import Path
+
 from pydantic import BaseModel, TypeAdapter
 from rich.console import Console
-from pathlib import Path
+
+from tilemaker import orm
+
 
 def _add_catalog_csv(filename: str, name: str, description: str, console: Console):
     import numpy as np
@@ -20,9 +23,7 @@ def _add_catalog_csv(filename: str, name: str, description: str, console: Consol
         session.add(catalog)
 
         items = [
-            orm.SourceItem(
-                source_list=catalog, flux=row[0], ra=row[1], dec=row[2]
-            )
+            orm.SourceItem(source_list=catalog, flux=row[0], ra=row[1], dec=row[2])
             for row in data
         ]
         session.add_all(items)
@@ -57,7 +58,11 @@ def _add_catalog_json(filename: str, name: str, description: str, console: Conso
 
         items = [
             orm.SourceItem(
-                source_list=catalog, flux=item.flux, ra=item.ra, dec=item.dec, name=item.name
+                source_list=catalog,
+                flux=item.flux,
+                ra=item.ra,
+                dec=item.dec,
+                name=item.name,
             )
             for item in data
         ]
@@ -85,7 +90,6 @@ def add_catalog(filename: str, name: str, description: str, console: Console):
     return
 
 
-
 def add_fits_map(
     filename: Path,
     map_name: str,
@@ -98,7 +102,7 @@ def add_fits_map(
     tags: str | None = None,
     patch: str | None = None,
     frequency: str | None = None,
-    units: str | None = None
+    units: str | None = None,
 ):
     QUANTITY_MAP = {
         "uK": "T",
@@ -109,7 +113,7 @@ def add_fits_map(
         "uK": (-500.0, 500.0),
         "K": (-5e-4, 5e-4),
     }
-    
+
     import numpy as np
 
     import tilemaker.database as db
@@ -212,9 +216,7 @@ def add_fits_map(
                 bounding_right=top_right[0].value,
                 bounding_top=top_right[1].value,
                 bounding_bottom=bottom_left[1].value,
-                quantity=QUANTITY_MAP.get(
-                    units, None
-                ),
+                quantity=QUANTITY_MAP.get(units, None),
             )
 
             console.print("Ingesting:", band)
