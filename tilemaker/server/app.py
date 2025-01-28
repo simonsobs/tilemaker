@@ -68,12 +68,12 @@ def get_maps():
 
 
 @app.get("/maps/{map}", response_model=orm.map.MapResponse)
-def get_map(map: str):
+def get_map(map: int):
     with db.get_session() as session:
         stmt = (
             select(orm.Map)
             .options(subqueryload(orm.Map.bands))
-            .where(orm.Map.name == map)
+            .where(orm.Map.id == map)
         )
         result = session.exec(stmt).one_or_none()
 
@@ -85,7 +85,7 @@ def get_map(map: str):
 
 @app.get("/maps/{map}/{band}/submap/{left}/{right}/{top}/{bottom}/image.{ext}")
 def get_submap(
-    map: str,
+    map: int,
     band: int,
     left: float,
     right: float,
@@ -125,7 +125,7 @@ def get_submap(
 @app.get("/maps/{map}/{band}/{level}/{y}/{x}/tile.{ext}")
 @cache(expire=3600, coder=PickleCoder)
 def get_tile(
-    map: str,
+    map: id,
     band: str,
     level: int,
     y: int,
