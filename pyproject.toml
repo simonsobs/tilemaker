@@ -13,6 +13,7 @@ name = "tilemaker"
 version = "0.0.1a7"
 requires-python = ">=3.11"
 dependencies = [
+    "pixell",
     "sqlmodel",
     "pydantic-settings",
     "numpy",
@@ -21,7 +22,6 @@ dependencies = [
     "uvicorn",
     "matplotlib",
     "astropy",
-    "pixell",
     "fastapi-cache2",
     "typer"
 ]
