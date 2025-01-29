@@ -130,12 +130,6 @@ class FITSSimpleLoader:
                 elif self.identifier is None:
                     raise ValueError("You must provide an identifier for a 3D array.")
 
-            if self.log_scale_data:
-                zeros = self._map == 0.0
-                self._map = np.log10(np.abs(self._map))
-                self._map[zeros] = np.nan
-                self._map[self._map == 0.0] = np.nan
-
         return self._map
 
     def world_width(self) -> tuple[int]:
@@ -164,7 +158,13 @@ class FITSSimpleLoader:
 
         bins = np.linspace(min, max, n_bins + 1)
 
-        H, edges = np.histogram(self.read_data(), bins=bins)
+        if self.log_scale_data:
+            not_zeros = self.read_data() != 0.0
+            data = np.log10(np.abs(self.read_data()[not_zeros]))
+        else:
+            data = self.read_data()
+
+        H, edges = np.histogram(data, bins=bins)
 
         return H, edges
 
@@ -267,7 +267,14 @@ class FITSSimpleLoader:
             abs(bottom_left[0] - top_right[0]), abs(bottom_left[1] - top_right[1]), 1e-5
         )
 
-        return self.read_data().submap(enmap_slice)
+        submap = self.read_data().submap(enmap_slice)
+
+        if self.log_scale_data:
+            not_zeros = submap != 0.0
+            submap[not_zeros] = np.log10(np.abs(submap[not_zeros]))
+            submap[np.logical_not(not_zeros)] = np.nan
+
+        return submap
 
 
 class FITSTile:
