@@ -48,7 +48,8 @@ There are lots more options that can be seen with `tilemaker add iqu --help`. Fo
 tilemaker add iqu my_file.fits "An Example Map" --intensity-only
 ```
 
-To ingest only the `I` component of the map.
+To ingest only the `I` component of the map. Note that the default units are in `uK`, so if your
+map has un-declared (in the FITS header) kelvin units, you will need to add `--units=K`.
 
 ### Catalog Ingest
 
