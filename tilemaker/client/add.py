@@ -116,7 +116,7 @@ def add_iqu_map(
 
     db.create_database_and_tables()
 
-    fits_file = FITSFile(filename=filename)
+    fits_file = FITSFile(filename=filename, log_scale_data=False)
     map_name = map_name
     description = description
 

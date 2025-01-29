@@ -59,6 +59,8 @@ def print_bands(console: Console):
                 "map": band.map.name,
                 "levels": band.levels,
                 "tile_size": band.tile_size,
+                "quantity": band.quantity,
+                "units": band.units,
             }
         )
 
@@ -77,11 +79,6 @@ def print_maps(console: Console):
                 "id": map.id,
                 "name": map.name,
                 "description": map.description,
-                "telescope": map.telescope,
-                "data_release": map.data_release,
-                "season": map.season,
-                "tags": map.tags,
-                "patch": map.patch,
                 "bands": len(map.bands),
                 "levels": [band.levels for band in map.bands],
             }
