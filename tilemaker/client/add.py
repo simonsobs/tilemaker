@@ -90,18 +90,12 @@ def add_catalog(filename: str, name: str, description: str, console: Console):
     return
 
 
-def add_fits_map(
+def add_iqu_map(
     filename: Path,
     map_name: str,
     console: Console,
     description: str = "No description provided",
     intensity_only: bool = False,
-    telescope: str | None = None,
-    data_release: str | None = None,
-    season: str | None = None,
-    tags: str | None = None,
-    patch: str | None = None,
-    frequency: str | None = None,
     units: str | None = None,
 ):
     QUANTITY_MAP = {
@@ -130,45 +124,9 @@ def add_fits_map(
         add = []
 
         if (map_metadata := session.get(tilemaker.orm.Map, map_name)) is None:
-            telescope = (
-                telescope
-                if telescope is not None
-                else fits_file.individual_trees[0].header.get("TELESCOP", None)
-            )
-            data_release = (
-                data_release
-                if data_release is not None
-                else fits_file.individual_trees[0].header.get("RELEASE", None)
-            )
-            season = (
-                season
-                if season is not None
-                else fits_file.individual_trees[0].header.get("SEASON", None)
-            )
-            tags = (
-                tags
-                if tags is not None
-                else fits_file.individual_trees[0].header.get("ACTTAGS", None)
-            )
-            patch = (
-                patch
-                if patch is not None
-                else fits_file.individual_trees[0].header.get("PATCH", None)
-            )
-            units = (
-                units
-                if units is not None
-                else fits_file.individual_trees[0].header.get("BUNIT", None)
-            )
-
             map_metadata = tilemaker.orm.Map(
                 name=map_name,
                 description=description,
-                telescope=telescope,
-                data_release=data_release,
-                season=season,
-                tags=tags,
-                patch=patch,
             )
 
             add.append(map_metadata)
@@ -193,22 +151,16 @@ def add_fits_map(
 
             top_right, bottom_left = fits_image.world_size_degrees()
 
-            frequency = (
-                frequency
-                if frequency is not None
-                else fits_image.header.get("FREQ", "f000").replace("f", "")
-            )
-
             lower_bound, upper_bound = BOUNDS_MAP.get(units, [-500.0, 500.0])
 
             band = tilemaker.orm.Band(
                 map=map_metadata,
+                map_name=map_name,
                 tiles_available=True,
                 levels=number_of_layers,
                 tile_size=tile_size,
-                frequency=frequency,
-                stokes_parameter=str(fits_image.identifier),
                 units=units,
+                quantity=f"{QUANTITY_MAP.get(units, 'T')} ({str(fits_image.identifier)})",
                 recommended_cmap_min=lower_bound,
                 recommended_cmap_max=upper_bound,
                 recommended_cmap="RdBu_r",
@@ -216,13 +168,134 @@ def add_fits_map(
                 bounding_right=top_right[0].value,
                 bounding_top=top_right[1].value,
                 bounding_bottom=bottom_left[1].value,
-                quantity=QUANTITY_MAP.get(units, None),
             )
 
             console.print("Ingesting:", band)
 
             H, edges = fits_image.histogram_raw_data(
                 n_bins=128, min=lower_bound * 4, max=upper_bound * 4
+            )
+
+            histogram = tilemaker.orm.Histogram(
+                band=band,
+                start=lower_bound * 4,
+                end=upper_bound * 4,
+                bins=128,
+                edges_data_type=str(edges.dtype),
+                edges=edges.tobytes(order="C"),
+                histogram_data_type=str(H.dtype),
+                histogram=H.tobytes(order="C"),
+            )
+
+            tile_metadata = []
+
+            for depth in range(number_of_layers):
+                n_tiles_x = 2 ** (depth + 1)
+                n_tiles_y = 2 ** (depth)
+
+                for x in range(n_tiles_x):
+                    for y in range(n_tiles_y):
+                        tile_data = tree.get_tile(depth, x, y)
+
+                        if isinstance(tile_data.data, np.ma.MaskedArray):
+                            bytes = tile_data.data.tobytes(order="C", fill_value=np.nan)
+                        elif tile_data.data is None:
+                            bytes = None
+                        else:
+                            bytes = tile_data.data.tobytes(order="C")
+
+                        tile_metadata.append(
+                            tilemaker.orm.Tile(
+                                level=depth,
+                                x=x,
+                                y=y,
+                                band=band,
+                                data=bytes,
+                                data_type=str(tile_data.data.dtype)
+                                if tile_data.data is not None
+                                else None,
+                            )
+                        )
+
+            add += [band, histogram] + tile_metadata
+
+            session.add_all(add)
+            session.commit()
+
+            add = []
+
+
+def add_compton_map(
+    filename: Path,
+    map_name: str,
+    console: Console,
+    description: str = "No description provided",
+):
+    import numpy as np
+
+    import tilemaker.database as db
+    import tilemaker.orm
+    from tilemaker.processing.fits_simple import FITSFile, LayerTree
+
+    db.create_database_and_tables()
+
+    fits_file = FITSFile(filename=filename, log_scale_data=True)
+    description = description
+
+    with db.get_session() as session:
+        add = []
+
+        if (map_metadata := session.get(tilemaker.orm.Map, map_name)) is None:
+            map_metadata = tilemaker.orm.Map(
+                name=map_name,
+                description=description,
+            )
+
+            add.append(map_metadata)
+
+            console.print("Found map:", map_metadata)
+        else:
+            console.print(f"Map {map_name} already exists in the database")
+            return
+
+        for fits_image in fits_file.individual_trees:
+            tile_size = fits_image.tile_size
+            number_of_layers = fits_image.number_of_levels
+
+            tree = LayerTree(
+                number_of_layers=number_of_layers,
+                image_pixel_size=tile_size,
+                image=fits_image,
+            )
+
+            top_right, bottom_left = fits_image.world_size_degrees()
+
+            lower_bound, upper_bound = (-6, -4)
+
+            band = tilemaker.orm.Band(
+                map=map_metadata,
+                map_name=map_name,
+                tiles_available=True,
+                levels=number_of_layers,
+                tile_size=tile_size,
+                units="log",
+                quantity="Compton-y",
+                recommended_cmap_min=lower_bound,
+                recommended_cmap_max=upper_bound,
+                recommended_cmap="viridis",
+                bounding_left=bottom_left[0].value,
+                bounding_right=top_right[0].value,
+                bounding_top=top_right[1].value,
+                bounding_bottom=bottom_left[1].value,
+            )
+
+            console.print("Ingesting:", band)
+
+            center = (lower_bound + upper_bound) / 2
+            dx = (upper_bound - lower_bound) / 2
+
+            H, edges = fits_image.histogram_raw_data(
+                n_bins=128, min=center - 4 * dx, max=center + 4 * dx
             )
 
             histogram = tilemaker.orm.Histogram(

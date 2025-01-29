@@ -125,7 +125,7 @@ def get_submap(
 @app.get("/maps/{map}/{band}/{level}/{y}/{x}/tile.{ext}")
 @cache(expire=3600, coder=PickleCoder)
 def get_tile(
-    map: id,
+    map: int,
     band: str,
     level: int,
     y: int,

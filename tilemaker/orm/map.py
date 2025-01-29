@@ -21,31 +21,6 @@ class MapBase(SQLModel):
     description: str | None = Field(
         default=None, max_length=255, description="A description of the map."
     )
-    telescope: str | None = Field(
-        default=None,
-        max_length=255,
-        description="The telescope that was used to create this map.",
-    )
-    data_release: str | None = Field(
-        default=None,
-        max_length=255,
-        description="The data release that this map is part of.",
-    )
-    season: str | None = Field(
-        default=None,
-        max_length=255,
-        description="The season that this map was taken in.",
-    )
-    tags: str | None = Field(
-        default=None,
-        max_length=255,
-        description="Any tags that are associated with this map.",
-    )
-    patch: str | None = Field(
-        default=None,
-        max_length=255,
-        description="The patch of the sky that this map covers.",
-    )
 
 
 class Map(MapBase, table=True):
@@ -69,9 +44,10 @@ class MapResponse(MapBase):
 class Band(SQLModel, table=True):
     id: int = Field(primary_key=True, description="The id of this band information.")
 
-    map_name: str = Field(
-        foreign_key="map.name", description="The name of the map that this links to."
+    map_id: int = Field(
+        foreign_key="map.id", description="The name of the map that this links to."
     )
+    map_name: str = Field(description="The name of the map that this band is from.")
     map: Map = Relationship(
         back_populates="bands",
     )
@@ -81,17 +57,11 @@ class Band(SQLModel, table=True):
     bounding_top: float | None
     bounding_bottom: float | None
 
-    frequency: float | None = Field(
-        default=None, description="The frequency of this band in GHz"
-    )
-    stokes_parameter: str | None = Field(
-        default=None, max_length=255, description="The Stokes parameter of this band."
-    )
-
     quantity: str | None = Field(
         default=None, description="The quantity that the map is of."
     )
     units: str | None = Field(default=None, description="The units that the map is in.")
+
     recommended_cmap_min: float | None = Field(
         default=None,
         description="The recommended minimum value for the colour map. Should be the starting value.",

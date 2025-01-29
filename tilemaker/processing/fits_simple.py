@@ -2,7 +2,6 @@
 It should in princple be possible to just use the wcs to bisect the grid.
 """
 
-# %%
 import math
 from enum import Enum
 from pathlib import Path
@@ -16,14 +15,12 @@ from pixell import enmap
 from pydantic import BaseModel
 
 
-# %%
 class StokesParameters(Enum):
     I = 0
     Q = 1
     U = 2
 
 
-# %%
 class FITSFile(BaseModel):
     """
     A FITS file that can link out to multiple underlying
@@ -32,6 +29,8 @@ class FITSFile(BaseModel):
 
     filename: Path
     "The filename of the FITS file."
+    log_scale_data: bool = False
+    "Whether or not to log scale the data."
 
     @property
     def individual_trees(self) -> list["FITSSimpleLoader"]:
@@ -66,16 +65,21 @@ class FITSFile(BaseModel):
                     hdus.append((i, None))
 
         return [
-            FITSSimpleLoader(self.filename, hdu=i, identifier=stokes)
+            FITSSimpleLoader(
+                self.filename,
+                hdu=i,
+                identifier=stokes,
+                log_scale_data=self.log_scale_data,
+            )
             for i, stokes in hdus
         ]
 
 
-# %%
 class FITSSimpleLoader:
     filename: Path
     hdu: int
     identifier: Optional[Union[str, int]] = None
+    log_scale_data: bool = False
 
     header: fits.header.Header
     wcs: WCS
@@ -86,10 +90,17 @@ class FITSSimpleLoader:
     "Size of the tiles to read from the file."
     _number_of_levels: Optional[int] = None
 
-    def __init__(self, filename: Path, hdu: int = 0, identifier: str = "Q"):
+    def __init__(
+        self,
+        filename: Path,
+        hdu: int = 0,
+        identifier: str = "Q",
+        log_scale_data: bool = False,
+    ):
         self.filename = Path(filename)
         self.hdu = hdu
         self.identifier = identifier
+        self.log_scale_data = log_scale_data
 
         with fits.open(self.filename) as handle:
             self.header = handle[hdu].header
@@ -118,6 +129,12 @@ class FITSSimpleLoader:
                     self._map = base_map[index]
                 elif self.identifier is None:
                     raise ValueError("You must provide an identifier for a 3D array.")
+
+            if self.log_scale_data:
+                zeros = self._map == 0.0
+                self._map = np.log10(np.abs(self._map))
+                self._map[zeros] = np.nan
+                self._map[self._map == 0.0] = np.nan
 
         return self._map
 
@@ -168,7 +185,15 @@ class FITSSimpleLoader:
             x[0].dec if x[0].dec < 90.0 * units.deg else x[0].dec - 180.0 * units.deg,
         )
 
-        return sanitize(top_right), sanitize(bottom_left)
+        sanitize_nonscalar = lambda x: (
+            x.ra if x.ra < 180.0 * units.deg else x.ra - 360.0 * units.deg,
+            x.dec if x.dec < 90.0 * units.deg else x.dec - 180.0 * units.deg,
+        )
+
+        try:
+            return sanitize(top_right), sanitize(bottom_left)
+        except TypeError:
+            return sanitize_nonscalar(top_right), sanitize_nonscalar(bottom_left)
 
     @property
     def tile_size(self) -> int:
@@ -245,7 +270,6 @@ class FITSSimpleLoader:
         return self.read_data().submap(enmap_slice)
 
 
-# %%
 class FITSTile:
     """
     Tile in the QuadTree
@@ -444,19 +468,3 @@ class LayerTree:
 
     def get_tile(self, zoom: int, x: int, y: int) -> FITSTile:
         return self.layers[zoom].nodes[y][x]
-
-
-# #%%
-# new = "/Users/borrow-adm/Documents/Projects/imageviewer/TestImages/sosatp3_carmapMarch2023_f150_muKcmb.fits"
-# old = "/Users/borrow-adm/Documents/Projects/imageviewer/TestImages/act_planck_dr5.01_s08s18_AA_f150_daynight_map.fits"
-
-# for x in (new,):
-#     print(x)
-#     loader = FITSSimpleLoader(x, 0)
-
-#     for x in [0, 1, 2, 3]:
-#         for y in [0, 1]:
-#             tile = loader.read_tile(1, x, y)
-#             plt.imsave(f"{x}_{y}.png", tile[1, :, :], cmap="viridis", vmin=-500, vmax=500)
-
-# # %%

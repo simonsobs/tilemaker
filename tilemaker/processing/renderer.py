@@ -73,10 +73,12 @@ class Renderer:
 
         if buffer.ndim == 2:
             # Render with colour mapping, this is 'raw data'.
+            cmap = plt.get_cmap(render_options.cmap)
+            cmap.set_bad("#dddddd", 0.0)
             plt.imsave(
                 fname,
                 render_options.norm(buffer),
-                cmap=render_options.cmap,
+                cmap=cmap,
                 pil_kwargs=self.pil_kwargs,
                 format=self.format,
                 vmin=0.0,

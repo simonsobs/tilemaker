@@ -40,12 +40,6 @@ def add_iqu(
     map_name: str,
     description: str = "No description provided",
     intensity_only: bool = False,
-    telescope: str = "",
-    data_release: str = "",
-    season: str = "",
-    tags: str = "",
-    patch: str = "",
-    frequency: str = "",
     units: str = "",
 ):
     """
@@ -54,19 +48,33 @@ def add_iqu(
 
     global CONSOLE
 
-    add.add_fits_map(
+    add.add_iqu_map(
         filename,
         map_name,
         CONSOLE,
         description,
         intensity_only,
-        telescope if telescope else None,
-        data_release if data_release else None,
-        season if season else None,
-        tags if tags else None,
-        patch if patch else None,
-        frequency if frequency else None,
         units if units else None,
+    )
+
+
+@add_app.command("compton", help="Add a Compton-y map to the database (FITS)")
+def add_compton(
+    filename: Path,
+    map_name: str,
+    description: str = "No description provided",
+):
+    """
+    Add an IQU map to the database.
+    """
+
+    global CONSOLE
+
+    add.add_compton_map(
+        filename,
+        map_name,
+        CONSOLE,
+        description,
     )
 
 
