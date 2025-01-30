@@ -104,15 +104,18 @@ def add_highlight_box(
     """
     with db.get_session() as session:
         new_box = orm.HighlightBox(
-            top_left=top_left,
-            bottom_right=bottom_right,
+            top_left_ra=top_left[0],
+            top_left_dec=top_left[1],
+            bottom_right_ra=bottom_right[0],
+            bottom_right_dec=bottom_right[1],
             description=description,
             name=name,
         )
         session.add(new_box)
         session.commit()
+        new_id = new_box.id
 
-    return new_box
+    return new_id
 
 
 @app.delete("/highlights/boxes/{id}")
