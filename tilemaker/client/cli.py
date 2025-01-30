@@ -6,6 +6,7 @@ from pathlib import Path
 
 import typer
 from rich.console import Console
+from typing_extensions import Annotated
 
 from . import add, delete, search
 
@@ -81,8 +82,14 @@ def add_compton(
 @add_app.command("box", help="Add a box to for highlighting to the database")
 def add_box(
     name: str,
-    top_left: tuple[float, float] = (0, 0),
-    bottom_right: tuple[float, float] = (0, 0),
+    top_left: Annotated[
+        tuple[float, float],
+        typer.Option(help="The top-left point (RA, Dec) to draw the box from"),
+    ],
+    bottom_right: Annotated[
+        tuple[float, float],
+        typer.Option(help="The bottom-right point (RA, Dec) to draw the box to"),
+    ],
     description: str = "No description provided",
 ):
     """
