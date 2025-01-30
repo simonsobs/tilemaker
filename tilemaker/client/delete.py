@@ -62,3 +62,15 @@ def delete_map(id: int, console: Console) -> None:
         console.print(f"Map with ID {id} not found.")
 
     console.print(f"Map with ID {id} deleted.")
+
+
+def delete_box(id: int, console: Console) -> None:
+    """
+    Delete a box from the database.
+    """
+    try:
+        delete_one_by_id(id, orm.HighlightBox)
+    except ValueError:
+        console.print(f"Box with ID {id} not found.")
+
+    console.print(f"Box with ID {id} deleted.")

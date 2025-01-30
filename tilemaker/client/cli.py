@@ -6,6 +6,7 @@ from pathlib import Path
 
 import typer
 from rich.console import Console
+from typing_extensions import Annotated
 
 from . import add, delete, search
 
@@ -78,6 +79,34 @@ def add_compton(
     )
 
 
+@add_app.command("box", help="Add a box to for highlighting to the database")
+def add_box(
+    name: str,
+    top_left: Annotated[
+        tuple[float, float],
+        typer.Option(help="The top-left point (RA, Dec) to draw the box from"),
+    ],
+    bottom_right: Annotated[
+        tuple[float, float],
+        typer.Option(help="The bottom-right point (RA, Dec) to draw the box to"),
+    ],
+    description: str = "No description provided",
+):
+    """
+    Add a box to the database.
+    """
+
+    global CONSOLE
+
+    add.add_box(
+        name,
+        top_left,
+        bottom_right,
+        CONSOLE,
+        description,
+    )
+
+
 @delete_app.command("map")
 def delete_map(id: int):
     """
@@ -111,6 +140,17 @@ def delete_catalog(id: int):
     delete.delete_catalog(id, CONSOLE)
 
 
+@delete_app.command("box")
+def delete_box(id: int):
+    """
+    Delete a box from the database.
+    """
+
+    global CONSOLE
+
+    delete.delete_box(id, CONSOLE)
+
+
 @list_app.command("bands")
 def list_bands():
     """
@@ -142,6 +182,17 @@ def list_catalogs():
     global CONSOLE
 
     search.print_catalogs(CONSOLE)
+
+
+@list_app.command("boxes")
+def list_boxes():
+    """
+    List all boxes in the database.
+    """
+
+    global CONSOLE
+
+    search.print_boxes(CONSOLE)
 
 
 @APP.command()
