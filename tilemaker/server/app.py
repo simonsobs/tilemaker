@@ -83,6 +83,15 @@ def get_map(map: int):
     return result
 
 
+@app.get("/highlights/boxes")
+def get_highlight_boxes():
+    with db.get_session() as session:
+        stmt = select(orm.HighlightBox)
+        results = session.exec(stmt).all()
+
+    return results
+
+
 @app.get("/maps/{map}/{band}/submap/{left}/{right}/{top}/{bottom}/image.{ext}")
 def get_submap(
     map: int,

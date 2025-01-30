@@ -78,6 +78,28 @@ def add_compton(
     )
 
 
+@add_app.command("box", help="Add a box to for highlighting to the database")
+def add_box(
+    name: str,
+    top_left: tuple[float, float] = (0, 0),
+    bottom_right: tuple[float, float] = (0, 0),
+    description: str = "No description provided",
+):
+    """
+    Add a box to the database.
+    """
+
+    global CONSOLE
+
+    add.add_box(
+        name,
+        top_left,
+        bottom_right,
+        CONSOLE,
+        description,
+    )
+
+
 @delete_app.command("map")
 def delete_map(id: int):
     """
@@ -111,6 +133,17 @@ def delete_catalog(id: int):
     delete.delete_catalog(id, CONSOLE)
 
 
+@delete_app.command("box")
+def delete_box(id: int):
+    """
+    Delete a box from the database.
+    """
+
+    global CONSOLE
+
+    delete.delete_box(id, CONSOLE)
+
+
 @list_app.command("bands")
 def list_bands():
     """
@@ -142,6 +175,17 @@ def list_catalogs():
     global CONSOLE
 
     search.print_catalogs(CONSOLE)
+
+
+@list_app.command("boxes")
+def list_boxes():
+    """
+    List all boxes in the database.
+    """
+
+    global CONSOLE
+
+    search.print_boxes(CONSOLE)
 
 
 @APP.command()
