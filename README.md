@@ -12,11 +12,12 @@ Installation and Usage
 
 It is recommended that you install tilemaker in a virtual environment. You can
 easily manage virtual environments using python's built in `venv` tool or
-using `uv`. We recommend `uv`.
+using `uv`. We recommend `uv`. To create a virtual environment named
+`my_venv` and install `tilemaker` in it:
 
 ```
-uv venv venv --python=3.12
-source venv/bin/activate
+uv venv my_venv --python=3.12
+source my_venv/bin/activate
 uv pip install tilemaker
 ```
 
