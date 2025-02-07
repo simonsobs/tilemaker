@@ -101,11 +101,15 @@ def add_iqu_map(
     QUANTITY_MAP = {
         "uK": "T",
         "K": "T",
+        "Jy": "F",
+        "mJy": "F",
     }
 
     BOUNDS_MAP = {
         "uK": (-500.0, 500.0),
         "K": (-5e-4, 5e-4),
+        "Jy": (-20e-3, 20e-3),
+        "mJy": (-20, 20),
     }
 
     import numpy as np
