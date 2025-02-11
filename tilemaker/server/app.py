@@ -83,6 +83,56 @@ def get_map(map: int):
     return result
 
 
+@app.get("/highlights/boxes")
+def get_highlight_boxes():
+    with db.get_session() as session:
+        stmt = select(orm.HighlightBox)
+        results = session.exec(stmt).all()
+
+    return results
+
+
+@app.put("/highlights/boxes/new")
+def add_highlight_box(
+    top_left: tuple[float, float],
+    bottom_right: tuple[float, float],
+    description: str | None,
+    name: str | None,
+):
+    """
+    Add a new highlight box. For conversion from selection regions.
+    """
+    with db.get_session() as session:
+        new_box = orm.HighlightBox(
+            top_left_ra=top_left[0],
+            top_left_dec=top_left[1],
+            bottom_right_ra=bottom_right[0],
+            bottom_right_dec=bottom_right[1],
+            description=description,
+            name=name,
+        )
+        session.add(new_box)
+        session.commit()
+        new_id = new_box.id
+
+    return new_id
+
+
+@app.delete("/highlights/boxes/{id}")
+def delete_highlight_box(id: int):
+    with db.get_session() as session:
+        stmt = select(orm.HighlightBox).where(orm.HighlightBox.id == id)
+        result = session.exec(stmt).one_or_none()
+
+        if result is None:
+            raise HTTPException(status_code=404, detail="Box not found")
+
+        session.delete(result)
+        session.commit()
+
+    return
+
+
 @app.get("/maps/{map}/{band}/submap/{left}/{right}/{top}/{bottom}/image.{ext}")
 def get_submap(
     map: int,

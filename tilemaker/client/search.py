@@ -102,3 +102,25 @@ def print_catalogs(console: Console):
                 "source_count": len(catalog.sources),
             }
         )
+
+
+def print_boxes(console: Console):
+    """
+    Print all boxes in the database.
+    """
+    boxes = select_all(orm.HighlightBox)
+
+    console.print(f"Found {len(boxes)} boxes:")
+
+    for box in boxes:
+        console.print(
+            {
+                "id": box.id,
+                "name": box.name,
+                "description": box.description,
+                "top_left_ra": box.top_left_ra,
+                "top_left_dec": box.top_left_dec,
+                "bottom_right_ra": box.bottom_right_ra,
+                "bottom_right_dec": box.bottom_right_dec,
+            }
+        )

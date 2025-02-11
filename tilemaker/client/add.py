@@ -229,6 +229,39 @@ def add_iqu_map(
             add = []
 
 
+def add_box(
+    name: str,
+    top_left: tuple[float, float],
+    bottom_right: tuple[float, float],
+    console: Console,
+    description: str | None = None,
+):
+    """
+    Add a highlight box to the database.
+    """
+    import tilemaker.database as db
+    import tilemaker.orm
+
+    db.create_database_and_tables()
+
+    with db.get_session() as session:
+        box = tilemaker.orm.HighlightBox(
+            name=name,
+            description=description,
+            top_left_ra=top_left[0],
+            top_left_dec=top_left[1],
+            bottom_right_ra=bottom_right[0],
+            bottom_right_dec=bottom_right[1],
+        )
+
+        console.print("Adding", box)
+
+        session.add(box)
+        session.commit()
+
+    return
+
+
 def add_compton_map(
     filename: Path,
     map_name: str,
