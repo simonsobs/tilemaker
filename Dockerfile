@@ -8,7 +8,6 @@ RUN git clone https://github.com/simonsobs/tileviewer.git
 WORKDIR /tileviewer
 RUN npm cache clean --force
 RUN rm -rf node_modules/.vite
-RUN npm install husky
 RUN npm install
 RUN npm run build
 
