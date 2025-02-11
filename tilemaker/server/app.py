@@ -53,9 +53,6 @@ if settings.add_cors:
         allow_headers=["*"],
     )
 
-# Mount the built-in client.
-if settings.serve_frontend:
-    app.mount("/static", StaticFiles(directory=STATIC_DIRECTORY), name="spa")
 
 
 @app.get("/maps")
@@ -294,7 +291,11 @@ if settings.serve_frontend:
     # The index.html is actually in static. But if anyone wants to access it
     # they might go to /, /index.html, /index.htm... etc. So we need to have a
     # catch-all route for static content
-    @app.get("/{full_path:path}")
+    @app.get("/")
     async def serve_spa():
         index_file_path = STATIC_DIRECTORY / "index.html"
         return FileResponse(index_file_path)
+
+# Mount the built-in client.
+if settings.serve_frontend:
+    app.mount("/", StaticFiles(directory=STATIC_DIRECTORY), name="spa")
