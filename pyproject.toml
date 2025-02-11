@@ -10,7 +10,7 @@ tilemaker = ["server/static/*", "server/static/assets/*"]
 
 [project]
 name = "tilemaker"
-version = "0.0.1a9"
+version = "0.0.1a10"
 requires-python = ">=3.11"
 dependencies = [
     "pixell",
