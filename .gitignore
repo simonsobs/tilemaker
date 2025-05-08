@@ -8,3 +8,6 @@ env/*
 templates/*
 dist/*
 tilemaker/server/static/*
+*.fits
+*.pem
+*package-lock*

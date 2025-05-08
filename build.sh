@@ -1,6 +1,8 @@
 # Script for running the entire build process. Similar to docker file,
 # but allows for a static-included wheel to be uploaded to pypi.
 
+export VITE_MODE="production"
+
 git clone -b main --single-branch https://github.com/simonsobs/tileviewer.git
 
 cd tileviewer
