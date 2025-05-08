@@ -62,7 +62,7 @@ class SimpleMapMaker(BaseModel):
                     y_range = np.s_[y * tile_size : (y + 1) * tile_size]
                     tile = copy_array[x_range, y_range]
 
-                    tiles[f"{x}_{y}"] = tile
+                    tiles[f"{x}_{y}"] = tile.T
 
             levels[level] = tiles
 

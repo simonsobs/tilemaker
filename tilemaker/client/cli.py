@@ -8,7 +8,7 @@ import typer
 from rich.console import Console
 from typing_extensions import Annotated
 
-from . import add, delete, search
+from . import add, delete, search, simple
 
 CONSOLE = Console()
 
@@ -200,6 +200,20 @@ def serve(host: str = "127.0.0.1", port: int = 8000):
     """
     Start the development/user-hosted server for tilemaker.
     """
+    from uvicorn import run
+
+    from tilemaker.server import app
+
+    run(app, host=host, port=port)
+
+
+@APP.command()
+def dev(host: str = "127.0.0.1", port: int = 8000):
+    """
+    Start the development server with a sample map for tilemaker.
+    """
+    simple.add_sample_map()
+
     from uvicorn import run
 
     from tilemaker.server import app

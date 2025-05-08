@@ -54,7 +54,6 @@ if settings.add_cors:
     )
 
 
-
 @app.get("/maps")
 def get_maps():
     with db.get_session() as session:
@@ -295,6 +294,7 @@ if settings.serve_frontend:
     async def serve_spa():
         index_file_path = STATIC_DIRECTORY / "index.html"
         return FileResponse(index_file_path)
+
 
 # Mount the built-in client.
 if settings.serve_frontend:
