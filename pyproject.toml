@@ -23,7 +23,8 @@ dependencies = [
     "matplotlib",
     "astropy",
     "fastapi-cache2",
-    "typer"
+    "typer",
+    "soauth"
 ]
 
 [project.scripts]
