@@ -34,6 +34,10 @@ You can run a test server that produces a simple example map by running:
 tilemaker dev
 ```
 
+If you wish to simply serve the API, this is fine (though you must set
+`TILEMAKER_SERVE_FRONTEND=no` as an environment variable). To build the
+frontend for development, simply run the `build.sh` script.
+
 Ingesting Data
 --------------
 
