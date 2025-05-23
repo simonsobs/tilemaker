@@ -15,6 +15,7 @@ def extract(
     right: float,
     top: float,
     bottom: float,
+    proprietary: bool,
 ) -> np.array:
     """
     Extract a sub-map from a band between RA and Dec ranges (in degrees).
@@ -31,6 +32,8 @@ def extract(
         The top-most Dec value of the sub-map (deg).
     bottom : float
         The bottom-most Dec value of the sub-map (deg).
+    proprietary: bool
+        Whether to include any proprietary data in the return.
     """
 
     from tilemaker.database import get_session
@@ -43,7 +46,7 @@ def extract(
     with get_session() as session:
         band = session.get(orm.Band, band_id)
 
-        if band is None:
+        if band is None or (band.proprietary and (not proprietary)):
             raise ValueError(f"Band with ID {band_id} not found.")
 
         wcs = band.wcs

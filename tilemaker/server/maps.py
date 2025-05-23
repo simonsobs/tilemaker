@@ -1,0 +1,155 @@
+"""
+Endpoints for maps.
+"""
+
+import io
+
+import numpy as np
+from astropy.io import fits
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from sqlalchemy import select
+from sqlalchemy.orm import subqueryload
+
+from tilemaker.processing.extractor import extract
+
+from .. import database as db
+from .. import orm
+from ..processing.renderer import Renderer, RenderOptions
+from .auth import allow_proprietary, filter_by_proprietary
+
+renderer = Renderer(format="webp")
+
+maps_router = APIRouter(prefix="/maps")
+
+
+@maps_router.get("")
+def get_maps(request: Request):
+    with db.get_session() as session:
+        stmt = filter_by_proprietary(query=select(orm.Map), request=request)
+        results = session.exec(stmt).scalars().all()
+
+    return results
+
+
+@maps_router.get("/{map}")
+def get_map(map: int, request: Request):
+    with db.get_session() as session:
+        stmt = filter_by_proprietary(
+            select(orm.Map)
+            .options(subqueryload(orm.Map.bands))
+            .where(orm.Map.id == map),
+            request=request,
+        )
+        result = session.exec(stmt).one_or_none()[0]
+
+    if result is None:
+        raise HTTPException(status_code=404, detail="Map not found")
+
+    return result
+
+
+@maps_router.get("/maps/{map}/{band}/submap/{left}/{right}/{top}/{bottom}/image.{ext}")
+def get_submap(
+    map: int,
+    band: int,
+    left: float,
+    right: float,
+    top: float,
+    bottom: float,
+    ext: str,
+    request: Request,
+    render_options: RenderOptions = Depends(RenderOptions),
+):
+    """
+    Get a submap of the specified band.
+    """
+
+    if ext not in ["jpg", "webp", "png", "fits"]:
+        raise HTTPException(status_code=400, detail="Not an acceptable extension")
+
+    submap = extract(
+        band_id=band,
+        left=left,
+        right=right,
+        top=top,
+        bottom=bottom,
+        proprietary=allow_proprietary(request=request),
+    )
+
+    if ext == "jpg":
+        with io.BytesIO() as output:
+            renderer.render(output, submap, render_options=render_options)
+            return Response(content=output.getvalue(), media_type="image/jpg")
+    elif ext == "webp":
+        with io.BytesIO() as output:
+            renderer.render(output, submap, render_options=render_options)
+            return Response(content=output.getvalue(), media_type="image/webp")
+    elif ext == "png":
+        with io.BytesIO() as output:
+            renderer.render(output, submap, render_options=render_options)
+            return Response(content=output.getvalue(), media_type="image/png")
+    elif ext == "fits":
+        with io.BytesIO() as output:
+            hdu = fits.PrimaryHDU(submap)
+            hdu.writeto(output)
+            return Response(content=output.getvalue(), media_type="image/fits")
+
+
+@maps_router.get("/maps/{map}/{band}/{level}/{y}/{x}/tile.{ext}")
+def get_tile(
+    map: int,
+    band: str,
+    level: int,
+    y: int,
+    x: int,
+    ext: str,
+    request: Request,
+    render_options: RenderOptions = Depends(RenderOptions),
+):
+    """
+    Grab an individual tile. This should be very fast, because we use
+    a composite primary key for band, level, x, and y.
+
+    Supported extensions:
+    # - .raw (you will get the raw array data)
+    - .jpg (you will get a rendered JPG)
+    """
+
+    if ext not in ["jpg", "webp", "png"]:
+        raise HTTPException(status_code=400, detail="Not an acceptable extension")
+
+    with db.get_session() as session:
+        stmt = filter_by_proprietary(
+            select(orm.Tile).where(
+                orm.Tile.band_id == int(band),
+                orm.Tile.level == int(level),
+                orm.Tile.y == int(y),
+                orm.Tile.x == int(x),
+            ),
+            request=request,
+        )
+
+        result = session.exec(stmt).one_or_none()
+
+        # TODO: Optimize this. Maybe in-memory cache?
+        tile_size = result.band.tile_size
+
+    if result is None or result.data is None:
+        raise HTTPException(status_code=404, detail="Tile not found")
+
+    numpy_buf = np.frombuffer(result.data, dtype=result.data_type).reshape(
+        (tile_size, tile_size)
+    )
+
+    if ext == "jpg":
+        with io.BytesIO() as output:
+            renderer.render(output, numpy_buf, render_options=render_options)
+            return Response(content=output.getvalue(), media_type="image/jpg")
+    elif ext == "webp":
+        with io.BytesIO() as output:
+            renderer.render(output, numpy_buf, render_options=render_options)
+            return Response(content=output.getvalue(), media_type="image/webp")
+    elif ext == "png":
+        with io.BytesIO() as output:
+            renderer.render(output, numpy_buf, render_options=render_options)
+            return Response(content=output.getvalue(), media_type="image/png")

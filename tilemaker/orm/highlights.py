@@ -18,3 +18,4 @@ class HighlightBoxBase(SQLModel):
 
 class HighlightBox(HighlightBoxBase, table=True):
     __tablename__ = "highlight_box"
+    proprietary: bool = Field(default=False)

@@ -2,6 +2,8 @@
 Settings for the project.
 """
 
+from typing import Literal
+
 from pydantic_settings import BaseSettings
 
 
@@ -21,6 +23,20 @@ class Settings(BaseSettings):
 
     use_in_memory_cache: bool = True
     "Use an in-memory cache for the tiles. Can improve performance by reducing database queries."
+
+    proprietary_scope: str = "simonsobs"
+    "The scope to require for proprietary data access."
+
+    auth_type: Literal["soauth", "mock"] = "mock"
+    "The authentication type to use."
+
+    # SOAuth settings (if used)
+    soauth_base_url: str | None = None
+    soauth_auth_url: str | None = None
+    soauth_app_id: str | None = None
+    soauth_client_secret: str | None = None
+    soauth_public_key: str | None = None
+    soauth_key_pair_type: str | None = None
 
     class Config:
         env_prefix = "TILEMAKER_"

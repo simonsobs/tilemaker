@@ -10,7 +10,13 @@ from rich.console import Console
 from tilemaker import orm
 
 
-def _add_catalog_csv(filename: str, name: str, description: str, console: Console):
+def _add_catalog_csv(
+    filename: str,
+    name: str,
+    description: str,
+    console: Console,
+    proprietary: bool = False,
+):
     import numpy as np
 
     from tilemaker import database as db
@@ -19,11 +25,19 @@ def _add_catalog_csv(filename: str, name: str, description: str, console: Consol
 
     db.create_database_and_tables()
     with db.get_session() as session:
-        catalog = orm.SourceList(name=name, description=description)
+        catalog = orm.SourceList(
+            name=name, description=description, proprietary=proprietary
+        )
         session.add(catalog)
 
         items = [
-            orm.SourceItem(source_list=catalog, flux=row[0], ra=row[1], dec=row[2])
+            orm.SourceItem(
+                source_list=catalog,
+                flux=row[0],
+                ra=row[1],
+                dec=row[2],
+                proprietary=proprietary,
+            )
             for row in data
         ]
         session.add_all(items)
@@ -42,7 +56,13 @@ class CatalogIngestItem(BaseModel):
     name: str | None = None
 
 
-def _add_catalog_json(filename: str, name: str, description: str, console: Console):
+def _add_catalog_json(
+    filename: str,
+    name: str,
+    description: str,
+    console: Console,
+    proprietary: bool = False,
+):
     """
     De-serialize a JSON file into a catalog.
     """
@@ -53,7 +73,9 @@ def _add_catalog_json(filename: str, name: str, description: str, console: Conso
 
     db.create_database_and_tables()
     with db.get_session() as session:
-        catalog = orm.SourceList(name=name, description=description)
+        catalog = orm.SourceList(
+            name=name, description=description, proprietary=proprietary
+        )
         session.add(catalog)
 
         items = [
@@ -63,6 +85,7 @@ def _add_catalog_json(filename: str, name: str, description: str, console: Conso
                 ra=item.ra,
                 dec=item.dec,
                 name=item.name,
+                proprietary=proprietary,
             )
             for item in data
         ]
@@ -75,15 +98,21 @@ def _add_catalog_json(filename: str, name: str, description: str, console: Conso
     return
 
 
-def add_catalog(filename: str, name: str, description: str, console: Console):
+def add_catalog(
+    filename: str,
+    name: str,
+    description: str,
+    console: Console,
+    proprietary: bool = False,
+):
     """
     Add a catalog to the database.
     """
 
     if filename.endswith(".csv"):
-        _add_catalog_csv(filename, name, description, console)
+        _add_catalog_csv(filename, name, description, console, proprietary=proprietary)
     elif filename.endswith(".json"):
-        _add_catalog_json(filename, name, description, console)
+        _add_catalog_json(filename, name, description, console, proprietary=proprietary)
     else:
         console.print("Catalog must be a CSV or JSON file")
 
@@ -97,6 +126,7 @@ def add_iqu_map(
     description: str = "No description provided",
     intensity_only: bool = False,
     units: str | None = None,
+    proprietary: bool = False,
 ):
     QUANTITY_MAP = {
         "uK": "T",
@@ -131,6 +161,7 @@ def add_iqu_map(
             map_metadata = tilemaker.orm.Map(
                 name=map_name,
                 description=description,
+                proprietary=proprietary,
             )
 
             add.append(map_metadata)
@@ -172,6 +203,7 @@ def add_iqu_map(
                 bounding_right=top_right[0].value,
                 bounding_top=top_right[1].value,
                 bounding_bottom=bottom_left[1].value,
+                proprietary=proprietary,
             )
 
             console.print("Ingesting:", band)
@@ -189,6 +221,7 @@ def add_iqu_map(
                 edges=edges.tobytes(order="C"),
                 histogram_data_type=str(H.dtype),
                 histogram=H.tobytes(order="C"),
+                proprietary=proprietary,
             )
 
             tile_metadata = []
@@ -218,6 +251,7 @@ def add_iqu_map(
                                 data_type=str(tile_data.data.dtype)
                                 if tile_data.data is not None
                                 else None,
+                                proprietary=proprietary,
                             )
                         )
 
@@ -235,6 +269,7 @@ def add_box(
     bottom_right: tuple[float, float],
     console: Console,
     description: str | None = None,
+    proprietary: bool = False,
 ):
     """
     Add a highlight box to the database.
@@ -252,6 +287,7 @@ def add_box(
             top_left_dec=top_left[1],
             bottom_right_ra=bottom_right[0],
             bottom_right_dec=bottom_right[1],
+            proprietary=proprietary,
         )
 
         console.print("Adding", box)
@@ -267,6 +303,7 @@ def add_compton_map(
     map_name: str,
     console: Console,
     description: str = "No description provided",
+    proprietary: bool = False,
 ):
     import numpy as np
 
@@ -284,8 +321,7 @@ def add_compton_map(
 
         if (map_metadata := session.get(tilemaker.orm.Map, map_name)) is None:
             map_metadata = tilemaker.orm.Map(
-                name=map_name,
-                description=description,
+                name=map_name, description=description, proprietary=proprietary
             )
 
             add.append(map_metadata)
@@ -324,6 +360,7 @@ def add_compton_map(
                 bounding_right=top_right[0].value,
                 bounding_top=top_right[1].value,
                 bounding_bottom=bottom_left[1].value,
+                proprietary=proprietary,
             )
 
             console.print("Ingesting:", band)
@@ -344,6 +381,7 @@ def add_compton_map(
                 edges=edges.tobytes(order="C"),
                 histogram_data_type=str(H.dtype),
                 histogram=H.tobytes(order="C"),
+                proprietary=proprietary,
             )
 
             tile_metadata = []
@@ -373,6 +411,7 @@ def add_compton_map(
                                 data_type=str(tile_data.data.dtype)
                                 if tile_data.data is not None
                                 else None,
+                                proprietary=proprietary,
                             )
                         )
 

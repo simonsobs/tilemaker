@@ -42,6 +42,7 @@ def add_iqu(
     description: str = "No description provided",
     intensity_only: bool = False,
     units: str = "",
+    proprietary: bool = False,
 ):
     """
     Add an IQU map to the database.
@@ -56,6 +57,7 @@ def add_iqu(
         description,
         intensity_only,
         units if units else None,
+        proprietary=proprietary,
     )
 
 
@@ -64,6 +66,7 @@ def add_compton(
     filename: Path,
     map_name: str,
     description: str = "No description provided",
+    proprietary: bool = False,
 ):
     """
     Add an IQU map to the database.
@@ -72,10 +75,7 @@ def add_compton(
     global CONSOLE
 
     add.add_compton_map(
-        filename,
-        map_name,
-        CONSOLE,
-        description,
+        filename, map_name, CONSOLE, description, proprietary=proprietary
     )
 
 
@@ -91,6 +91,7 @@ def add_box(
         typer.Option(help="The bottom-right point (RA, Dec) to draw the box to"),
     ],
     description: str = "No description provided",
+    proprietary: bool = False,
 ):
     """
     Add a box to the database.
@@ -99,11 +100,7 @@ def add_box(
     global CONSOLE
 
     add.add_box(
-        name,
-        top_left,
-        bottom_right,
-        CONSOLE,
-        description,
+        name, top_left, bottom_right, CONSOLE, description, proprietary=proprietary
     )
 
 

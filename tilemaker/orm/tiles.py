@@ -27,6 +27,7 @@ class Tile(SQLModel, table=True):
         foreign_key="band.id",
         description="The id of the band this tile belongs to.",
     )
+    proprietary: bool = Field(default=False)
     band: "Band" = Relationship(back_populates="tiles")
 
     data_type: str | None = Field(

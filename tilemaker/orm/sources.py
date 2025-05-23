@@ -19,6 +19,8 @@ class SourceList(SourceListBase, table=True):
         sa_relationship_kwargs={"cascade": "all, delete-orphan"},
     )
 
+    proprietary: bool = Field(default=False)
+
     def __str__(self):
         return f"Source list {self.id} with name {self.name} and description {self.description}"
 
@@ -41,3 +43,5 @@ class SourceItem(SourceItemBase, table=True):
     source_list: SourceList = Relationship(
         back_populates="sources",
     )
+
+    proprietary: bool = Field(default=False)

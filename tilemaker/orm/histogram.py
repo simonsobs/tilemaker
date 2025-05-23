@@ -11,6 +11,7 @@ from .map import Band
 
 class Histogram(SQLModel, table=True):
     id: int = Field(primary_key=True, description="The id of the histogram.")
+    proprietary: bool = Field(default=False)
     band_id: int = Field(
         foreign_key="band.id",
         description="The band that this histogram is associated with.",
