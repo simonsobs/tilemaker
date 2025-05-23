@@ -15,8 +15,8 @@ easily manage virtual environments using python's built in `venv` tool or
 using `uv`. We recommend `uv`.
 
 ```
-uv venv venv --python=3.12
-source venv/bin/activate
+uv venv --python=3.12
+source .venv/bin/activate
 uv pip install tilemaker
 ```
 
