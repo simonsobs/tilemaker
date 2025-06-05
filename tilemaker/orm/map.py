@@ -30,6 +30,8 @@ class Map(MapBase, table=True):
         back_populates="map", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
     )
 
+    proprietary: bool = Field(default=False)
+
     def __str__(self):
         return f"Map {self.id} with name {self.name} and description {self.description}"
 
@@ -40,6 +42,7 @@ class MapResponse(MapBase):
 
 class Band(SQLModel, table=True):
     id: int = Field(primary_key=True, description="The id of this band information.")
+    proprietary: bool = Field(default=False)
 
     map_id: int = Field(
         foreign_key="map.id", description="The name of the map that this links to."

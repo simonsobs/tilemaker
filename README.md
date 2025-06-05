@@ -38,6 +38,10 @@ You can run a test server that produces a simple example map by:
   ```
 * Open your browser to `http://127.0.0.1:8000/maps/1` if you are just testing the API or `http://127.0.0.1:8000` if you want to see the frontend.
 
+If you wish to simply serve the API, this is fine (though you must set
+`TILEMAKER_SERVE_FRONTEND=no` as an environment variable). To build the
+frontend for development, simply run the `build.sh` script.
+
 Ingesting Data
 --------------
 
