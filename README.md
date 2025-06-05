@@ -29,10 +29,14 @@ uv run --python=3.12 --with tilemaker tilemaker $OPTIONS
 All user-driven usage of `tilemaker` is performed using the `tilemaker`
 command line utility. More information is available using `tilemaker --help`.
 
-You can run a test server that produces a simple example map by running:
-```
-tilemaker dev
-```
+You can run a test server that produces a simple example map by:
+
+* Either set the environment variable `TILEMAKER_SERVE_FRONTEND=no` to serve only the API or run the `build.sh` script to build the frontend.
+* Start the development server with:
+  ```
+  tilemaker dev
+  ```
+* Open your browser to `http://127.0.0.1:8000/maps/1` if you are just testing the API or `http://127.0.0.1:8000` if you want to see the frontend.
 
 Ingesting Data
 --------------
