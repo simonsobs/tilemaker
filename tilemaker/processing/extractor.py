@@ -46,6 +46,10 @@ def extract(
     with get_session() as session:
         band = session.get(orm.Band, band_id)
 
+        # If the band is not found, or if it is proprietary and we are not allowed to access it,
+        # raise an error. Note that bands are on a per-map basis and are not global (e.g. this is
+        # not saying f090 is a 'propreitary band', but rather that a map X has a submap (band)
+        # at f090 that is proprietary).
         if band is None or (band.proprietary and (not proprietary)):
             raise ValueError(f"Band with ID {band_id} not found.")
 

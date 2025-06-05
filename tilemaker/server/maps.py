@@ -111,8 +111,14 @@ def get_tile(
     a composite primary key for band, level, x, and y.
 
     Supported extensions:
-    # - .raw (you will get the raw array data)
-    - .jpg (you will get a rendered JPG)
+    - jpg
+    - webp
+    - png
+
+    Note: This does not support FITS tiles, as they are not
+    typically used for rendering. If you need FITS images, please
+    use the `/maps/{map}/{band}/submap/{left}/{right}/{top}/{bottom}/image.fits`
+    endpoint instead.
     """
 
     if ext not in ["jpg", "webp", "png"]:
