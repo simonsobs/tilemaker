@@ -14,6 +14,7 @@ from tilemaker.processing.extractor import extract
 
 from .. import database as db
 from .. import orm
+from ..orm.map import MapResponse
 from ..processing.renderer import Renderer, RenderOptions
 from .auth import allow_proprietary, filter_by_proprietary
 
@@ -26,12 +27,12 @@ maps_router = APIRouter(prefix="/maps")
 def get_maps(request: Request):
     with db.get_session() as session:
         stmt = filter_by_proprietary(query=select(orm.Map), request=request)
-        results = session.exec(stmt).scalars().all()
+        results = session.exec(stmt).scalars().unique().all()
 
     return results
 
 
-@maps_router.get("/{map}")
+@maps_router.get("/{map}", response_model=MapResponse)
 def get_map(map: int, request: Request):
     with db.get_session() as session:
         stmt = filter_by_proprietary(
@@ -40,15 +41,15 @@ def get_map(map: int, request: Request):
             .where(orm.Map.id == map),
             request=request,
         )
-        result = session.exec(stmt).one_or_none()[0]
+        result = session.exec(stmt).unique().one_or_none()
 
     if result is None:
         raise HTTPException(status_code=404, detail="Map not found")
 
-    return result
+    return result[0]
 
 
-@maps_router.get("/maps/{map}/{band}/submap/{left}/{right}/{top}/{bottom}/image.{ext}")
+@maps_router.get("/{map}/{band}/submap/{left}/{right}/{top}/{bottom}/image.{ext}")
 def get_submap(
     map: int,
     band: int,
@@ -95,7 +96,7 @@ def get_submap(
             return Response(content=output.getvalue(), media_type="image/fits")
 
 
-@maps_router.get("/maps/{map}/{band}/{level}/{y}/{x}/tile.{ext}")
+@maps_router.get("/{map}/{band}/{level}/{y}/{x}/tile.{ext}")
 def get_tile(
     map: int,
     band: str,
@@ -121,6 +122,17 @@ def get_tile(
     endpoint instead.
     """
 
+    if render_options.flip:
+        # Flipping is really a reconfiguration of -180 < RA < 180 to 360 < RA < 0;
+        # it's a card-folding operation.
+        if level != 0:
+            # Level of zero requires no flipping apart from at the tile level.
+            midpoint = 2 ** (level)
+            if x < midpoint:
+                x = (2 ** (level) - 1) - x
+            else:
+                x = (2 ** (level) - 1) - (x - midpoint) + midpoint
+
     if ext not in ["jpg", "webp", "png"]:
         raise HTTPException(status_code=400, detail="Not an acceptable extension")
 
@@ -137,6 +149,11 @@ def get_tile(
 
         result = session.exec(stmt).one_or_none()
 
+        if result is None:
+            raise HTTPException(status_code=404, detail="Tile not found")
+
+        result = result[0]
+
         # TODO: Optimize this. Maybe in-memory cache?
         tile_size = result.band.tile_size
 
@@ -147,15 +164,6 @@ def get_tile(
         (tile_size, tile_size)
     )
 
-    if ext == "jpg":
-        with io.BytesIO() as output:
-            renderer.render(output, numpy_buf, render_options=render_options)
-            return Response(content=output.getvalue(), media_type="image/jpg")
-    elif ext == "webp":
-        with io.BytesIO() as output:
-            renderer.render(output, numpy_buf, render_options=render_options)
-            return Response(content=output.getvalue(), media_type="image/webp")
-    elif ext == "png":
-        with io.BytesIO() as output:
-            renderer.render(output, numpy_buf, render_options=render_options)
-            return Response(content=output.getvalue(), media_type="image/png")
+    with io.BytesIO() as output:
+        renderer.render(output, numpy_buf, render_options=render_options)
+        return Response(content=output.getvalue(), media_type=f"image/{ext}")

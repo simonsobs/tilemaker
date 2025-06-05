@@ -18,7 +18,7 @@ def select_all(model, load_children=None):
             stmt = select(model).options(subqueryload(load_children))
         else:
             stmt = select(model)
-        results = session.exec(stmt).all()
+        results = session.exec(stmt).unique().all()
 
     return results
 

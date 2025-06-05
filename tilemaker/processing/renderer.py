@@ -22,6 +22,8 @@ class RenderOptions(BaseModel):
     "Whether to use a log normalization, defaults to False."
     clip: bool = Field(default=True)
     "Whether to clip values outside of the range, defaults to True."
+    flip: bool = Field(default=False)
+    "Whether to render the entire field using 360 -> RA convention (true) or -180 < RA < 180 (false)."
 
     @property
     def norm(self) -> plt.Normalize:
@@ -70,6 +72,10 @@ class Renderer:
 
         Buffer is transposed in x, y to render correctly within this function.
         """
+
+        if render_options.flip:
+            # Flip the buffer horizontally if requested.
+            buffer = np.fliplr(buffer)
 
         if buffer.ndim == 2:
             # Render with colour mapping, this is 'raw data'.

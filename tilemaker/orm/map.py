@@ -27,7 +27,8 @@ class Map(MapBase, table=True):
     __tablename__ = "map"
 
     bands: list["Band"] = Relationship(
-        back_populates="map", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+        back_populates="map",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan", "lazy": "joined"},
     )
 
     proprietary: bool = Field(default=False)

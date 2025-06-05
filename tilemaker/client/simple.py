@@ -4,7 +4,7 @@ Run a simple development server, and also creates a new database file
 """
 
 
-def add_sample_map(text="example", width=2048, height=1024, font_size=400):
+def add_sample_map(text="example", width=4096, height=2048, font_size=800):
     """
     Creates a sample map that just says 'example'.
     """
@@ -24,6 +24,7 @@ def add_sample_map(text="example", width=2048, height=1024, font_size=400):
     with db.get_session() as session:
         results = (
             session.exec(select(tilemaker.orm.Map).filter_by(name=map_name))
+            .unique()
             .scalars()
             .all()
         )
