@@ -21,7 +21,7 @@ def get_sources(request: Request):
     return results
 
 
-@sources_router.get("/sources/{id}")
+@sources_router.get("/{id}")
 def get_source_list(id: int, request: Request):
     with db.get_session() as session:
         stmt = filter_by_proprietary(
