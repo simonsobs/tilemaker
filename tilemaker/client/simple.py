@@ -111,3 +111,98 @@ def add_sample_map(text="example", width=4096, height=2048, font_size=800):
         session.commit()
 
     return
+
+
+def add_sample_source_list(number: int = 4):
+    """
+    Creates a sample source list with the given number of sources.
+    """
+
+    from sqlalchemy import select
+
+    import tilemaker.database as db
+    import tilemaker.orm
+
+    source_list_name = "Sample Source List"
+
+    db.create_database_and_tables()
+
+    with db.get_session() as session:
+        results = (
+            session.exec(
+                select(tilemaker.orm.SourceList).filter_by(name=source_list_name)
+            )
+            .unique()
+            .scalars()
+            .all()
+        )
+
+    if results:
+        return
+
+    with db.get_session() as session:
+        sources = []
+
+        for i in range(number):
+            for j in range(number):
+                source_name = f"Source ({i}, {j})"
+
+                sources.append(
+                    tilemaker.orm.SourceItem(
+                        flux=float(i * j),
+                        ra=360 * (i + 0.5) / number - 180.0,
+                        dec=180 * (j + 0.5) / number - 90.0,
+                        name=source_name,
+                    )
+                )
+
+        source_list = tilemaker.orm.SourceList(
+            sources=sources,
+            name=source_list_name,
+            description="A sample source list with multiple sources.",
+            proprietary=False,
+        )
+
+        session.add_all([source_list] + sources)
+        session.commit()
+
+    return
+
+
+def add_sample_box():
+    """
+    Creates a sample box.
+    """
+
+    box_name = "Example Box"
+
+    from sqlalchemy import select
+
+    import tilemaker.database as db
+    import tilemaker.orm
+
+    with db.get_session() as session:
+        result = (
+            session.exec(select(tilemaker.orm.HighlightBox).filter_by(name=box_name))
+            .unique()
+            .scalars()
+            .all()
+        )
+
+    if result:
+        return
+
+    with db.get_session() as session:
+        box = tilemaker.orm.HighlightBox(
+            top_left_ra=-10.0,
+            top_left_dec=10.0,
+            bottom_right_ra=10.0,
+            bottom_right_dec=-10.0,
+            name=box_name,
+            description="An example highlight box.",
+        )
+
+        session.add(box)
+        session.commit()
+
+    return

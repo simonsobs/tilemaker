@@ -16,7 +16,7 @@ sources_router = APIRouter(prefix="/sources")
 def get_sources(request: Request):
     with db.get_session() as session:
         stmt = filter_by_proprietary(select(orm.SourceList), request=request)
-        results = session.exec(stmt).all()
+        results = session.exec(stmt).scalars().all()
 
     return results
 
@@ -28,7 +28,7 @@ def get_source_list(id: int, request: Request):
             select(orm.SourceItem).where(orm.SourceItem.source_list_id == id),
             request=request,
         )
-        result = session.exec(stmt).all()
+        result = session.exec(stmt).scalars().all()
 
     if result is None:
         raise HTTPException(status_code=404, detail="Source not found")

@@ -16,7 +16,7 @@ highlights_router = APIRouter(prefix="/highlights")
 def get_highlight_boxes(request: Request):
     with db.get_session() as session:
         stmt = filter_by_proprietary(select(orm.HighlightBox), request=request)
-        results = session.exec(stmt).all()
+        results = session.exec(stmt).scalars().all()
 
     return results
 

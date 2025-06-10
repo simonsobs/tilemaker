@@ -48,7 +48,7 @@ def histogram_data(band_id: int, request: Request) -> HistogramResponse:
 
         if result is None:
             raise HTTPException(status_code=404, detail="Histogram not found")
-        
+
         result = result[0]
 
         response = HistogramResponse(

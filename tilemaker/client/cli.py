@@ -210,6 +210,8 @@ def dev(host: str = "127.0.0.1", port: int = 8000):
     Start the development server with a sample map for tilemaker.
     """
     simple.add_sample_map()
+    simple.add_sample_source_list()
+    simple.add_sample_box()
 
     from uvicorn import run
 
