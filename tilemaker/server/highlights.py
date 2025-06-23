@@ -52,7 +52,7 @@ def add_highlight_box(
 def delete_highlight_box(id: int, request: Request):
     with db.get_session() as session:
         stmt = select(orm.HighlightBox).where(orm.HighlightBox.id == id)
-        result = session.exec(stmt).one_or_none()
+        result = session.exec(stmt).scalars().one_or_none()
 
         if result is None:
             raise HTTPException(status_code=404, detail="Box not found")
