@@ -186,7 +186,10 @@ def add_iqu_map(
 
             top_right, bottom_left = fits_image.world_size_degrees()
 
-            lower_bound, upper_bound = BOUNDS_MAP.get(units, [-500.0, 500.0])
+            if fits_image.identifier in {"Q", "U"}:
+                lower_bound, upper_bound = [-50.0, 50.0]
+            else:
+                lower_bound, upper_bound = BOUNDS_MAP.get(units, [-500.0, 500.0])
 
             band = tilemaker.orm.Band(
                 map=map_metadata,
