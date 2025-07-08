@@ -17,7 +17,7 @@ def delete_one_by_id(id: int, model) -> None:
 
     with db.get_session() as session:
         stmt = select(model).where(model.id == id)
-        result = session.exec(stmt).one_or_none()
+        result = session.exec(stmt).unique().one_or_none()
 
         if result is None:
             raise ValueError(f"{model.__name__} with ID {id} not found.")
