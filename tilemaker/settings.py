@@ -70,7 +70,7 @@ class Settings(BaseSettings):
             client = PooledClient(
                 server=(self.memcached_host, self.memcached_port),
                 serde=serde.pickle_serde,
-                pool_size=self.memcached_client_pool_size,
+                max_pool_size=self.memcached_client_pool_size,
                 timeout=self.memcached_timeout_seconds,
                 ignore_exc=True,
             )
