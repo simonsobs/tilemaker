@@ -53,6 +53,11 @@ class Band(SQLModel, table=True):
         back_populates="bands",
     )
 
+    band_display_name: str = Field(
+        default="Display Name",
+        description="The display name of the band, '(f090) I'. Shown in the drop-down menu.",
+    )
+
     bounding_left: float | None
     bounding_right: float | None
     bounding_top: float | None

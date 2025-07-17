@@ -127,6 +127,7 @@ def add_iqu_map(
     intensity_only: bool = False,
     units: str | None = None,
     proprietary: bool = False,
+    display_names: list[str] | None = None,
 ):
     QUANTITY_MAP = {
         "uK": "T",
@@ -170,10 +171,20 @@ def add_iqu_map(
         else:
             console.print(f"Map {map_name} already exists in the database")
             return
+        
+        if display_names and (len(display_names) != len(fits_file.individual_trees) and not intensity_only):
+            console.print(
+                "Display names provided do not match the number of bands in the FITS file."
+            )
+            return
 
-        for fits_image in fits_file.individual_trees:
+        for index, fits_image in enumerate(fits_file.individual_trees):
             if intensity_only and fits_image.identifier != "I":
                 continue
+
+            quantity = f"{QUANTITY_MAP.get(units, 'T')} ({str(fits_image.identifier)})"
+            display_name = display_names[index] if display_names else None
+            display_name = display_name or f"{fits_image.identifier} ({quantity})"
 
             tile_size = fits_image.tile_size
             number_of_layers = fits_image.number_of_levels
@@ -200,7 +211,8 @@ def add_iqu_map(
                 levels=number_of_layers,
                 tile_size=tile_size,
                 units=units,
-                quantity=f"{QUANTITY_MAP.get(units, 'T')} ({str(fits_image.identifier)})",
+                band_display_name=display_name,
+                quantity=quantity,
                 recommended_cmap_min=lower_bound,
                 recommended_cmap_max=upper_bound,
                 recommended_cmap="RdBu_r",
@@ -309,6 +321,7 @@ def add_compton_map(
     console: Console,
     description: str = "No description provided",
     proprietary: bool = False,
+    display_name: str | None = None
 ):
     import numpy as np
 
@@ -357,7 +370,8 @@ def add_compton_map(
                 levels=number_of_layers,
                 tile_size=tile_size,
                 units="log",
-                quantity="Compton-y",
+                band_display_name=display_name or "Compton-y",
+                quantity="y",
                 recommended_cmap_min=lower_bound,
                 recommended_cmap_max=upper_bound,
                 recommended_cmap="viridis",
