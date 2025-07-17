@@ -16,12 +16,14 @@ from .histogram import histogram_router
 from .maps import maps_router
 from .sources import sources_router
 
+
 async def lifespan(app: FastAPI):
     """
     Lifespan event handler for the FastAPI app.
     """
     app.cache = settings.create_cache()
     yield  # This will run the app
+
 
 app = FastAPI(lifespan=lifespan)
 STATIC_DIRECTORY = Path(__file__).parent / "static"

@@ -62,9 +62,10 @@ class Settings(BaseSettings):
 
             return InMemoryCache()
         elif self.cache_type == "memcached":
-            from tilemaker.server.caching import MemcachedCache
             from pymemcache import serde
             from pymemcache.client.base import PooledClient
+
+            from tilemaker.server.caching import MemcachedCache
 
             client = PooledClient(
                 server=(self.memcached_host, self.memcached_port),

@@ -11,7 +11,10 @@ from sqlalchemy import select
 from sqlalchemy.orm import subqueryload
 
 from tilemaker.processing.extractor import extract
-from tilemaker.server.caching import TileCache, TileNotFound, PassThroughCache, InMemoryCache, MemcachedCache
+from tilemaker.server.caching import (
+    TileCache,
+    TileNotFound,
+)
 
 from .. import database as db
 from .. import orm
@@ -97,7 +100,6 @@ def get_submap(
             return Response(content=output.getvalue(), media_type="image/fits")
 
 
-
 def core_tile_retrieval(
     db,
     cache: TileCache,
@@ -112,18 +114,20 @@ def core_tile_retrieval(
 
     # Check if the tile is in the cache
     try:
-        public_tile_cache = cache.get_cache(band, x, y, level, proprietary=user_has_proprietary)
+        public_tile_cache = cache.get_cache(
+            band, x, y, level, proprietary=user_has_proprietary
+        )
         return public_tile_cache
     except TileNotFound:
         print("Cache miss")
 
     with db.get_session() as session:
         stmt = select(orm.Tile).where(
-                orm.Tile.band_id == int(band),
-                orm.Tile.level == int(level),
-                orm.Tile.y == int(y),
-                orm.Tile.x == int(x),
-            )
+            orm.Tile.band_id == int(band),
+            orm.Tile.level == int(level),
+            orm.Tile.y == int(y),
+            orm.Tile.x == int(x),
+        )
 
         result = session.exec(stmt).one_or_none()
         result = result[0]
