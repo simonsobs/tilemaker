@@ -119,8 +119,8 @@ def core_tile_retrieval(
         )
         return public_tile_cache
     except TileNotFound:
-        print("Cache miss")
-
+        pass
+    
     with db.get_session() as session:
         stmt = select(orm.Tile).where(
             orm.Tile.band_id == int(band),

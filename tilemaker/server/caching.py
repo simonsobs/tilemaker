@@ -7,6 +7,7 @@ import abc
 import numpy as np
 from cachetools import LFUCache
 from pymemcache.client.base import Client
+import structlog
 
 
 class TileNotFound(Exception):
@@ -109,18 +110,21 @@ class MemcachedCache(TileCache):
         self, band: int, x: int, y: int, level: int, proprietary: bool
     ) -> np.ndarray | None:
         tile_hash = f"{band}-{level}-{x}-{y}"
-        print("Retrieving tile from cache:", tile_hash)
+        log = structlog.get_logger()
+        log = log.bind(tile_hash=tile_hash)
         res = self.client.get(tile_hash, None)
 
         if res is None:
-            print("Cache miss for tile:", tile_hash)
-            raise TileNotFound(f"Tile {band}-{level}-{x}-{y} not found in cache.")
+            log.debug("memcached.miss")
+            raise TileNotFound(f"Tile {tile_hash} not found in cache.")
 
         prop, data = res
 
         if prop and not proprietary:
+            log = log.debug("memcached.proprietary_hidden")
             return None
 
+        log.debug("memcached.read")
         return data
 
     def set_cache(
@@ -133,5 +137,7 @@ class MemcachedCache(TileCache):
         proprietary: bool,
     ) -> None:
         tile_hash = f"{band}-{level}-{x}-{y}"
-        print("Setting tile in cache:", tile_hash)
+        log = structlog.get_logger()
+        log = log.bind(tile_hash=tile_hash, proprietary=proprietary)
+        log.debug("memcached.set")
         self.client.set(tile_hash, (proprietary, data), noreply=True)

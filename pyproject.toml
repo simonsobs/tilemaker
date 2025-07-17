@@ -27,6 +27,7 @@ dependencies = [
     "soauth",
     "cachetools",
     "pymemcache",
+    "structlog"
 ]
 
 [project.scripts]
