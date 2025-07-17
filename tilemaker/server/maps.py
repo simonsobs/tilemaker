@@ -11,6 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import subqueryload
 
 from tilemaker.processing.extractor import extract
+from tilemaker.server.caching import TileCache, TileNotFound, PassThroughCache, InMemoryCache, MemcachedCache
 
 from .. import database as db
 from .. import orm
@@ -96,6 +97,62 @@ def get_submap(
             return Response(content=output.getvalue(), media_type="image/fits")
 
 
+
+def core_tile_retrieval(
+    db,
+    cache: TileCache,
+    map: int,
+    band: str,
+    level: int,
+    y: int,
+    x: int,
+    request: Request,
+):
+    user_has_proprietary = allow_proprietary(request=request)
+
+    # Check if the tile is in the cache
+    try:
+        public_tile_cache = cache.get_cache(band, x, y, level, proprietary=user_has_proprietary)
+        return public_tile_cache
+    except TileNotFound:
+        print("Cache miss")
+
+    with db.get_session() as session:
+        stmt = select(orm.Tile).where(
+                orm.Tile.band_id == int(band),
+                orm.Tile.level == int(level),
+                orm.Tile.y == int(y),
+                orm.Tile.x == int(x),
+            )
+
+        result = session.exec(stmt).one_or_none()
+        result = result[0]
+        tile_size = result.band.tile_size
+
+    if result is not None and result.data is not None:
+        numpy_buf = np.frombuffer(result.data, dtype=result.data_type).reshape(
+            (tile_size, tile_size)
+        )
+    else:
+        numpy_buf = None
+
+    # Send her back to the cache
+    cache.set_cache(
+        band=int(band),
+        x=int(x),
+        y=int(y),
+        level=int(level),
+        data=numpy_buf,
+        proprietary=result.proprietary,
+    )
+
+    # Critical -- otherwise non-proprietary users will get proprietary tiles
+    if result.proprietary and not user_has_proprietary:
+        return None
+
+    return numpy_buf
+
+
 @maps_router.get("/{map}/{band}/{level}/{y}/{x}/tile.{ext}")
 def get_tile(
     map: int,
@@ -136,33 +193,19 @@ def get_tile(
     if ext not in ["jpg", "webp", "png"]:
         raise HTTPException(status_code=400, detail="Not an acceptable extension")
 
-    with db.get_session() as session:
-        stmt = filter_by_proprietary(
-            select(orm.Tile).where(
-                orm.Tile.band_id == int(band),
-                orm.Tile.level == int(level),
-                orm.Tile.y == int(y),
-                orm.Tile.x == int(x),
-            ),
-            request=request,
-        )
-
-        result = session.exec(stmt).one_or_none()
-
-        if result is None:
-            raise HTTPException(status_code=404, detail="Tile not found")
-
-        result = result[0]
-
-        # TODO: Optimize this. Maybe in-memory cache?
-        tile_size = result.band.tile_size
-
-    if result is None or result.data is None:
-        raise HTTPException(status_code=404, detail="Tile not found")
-
-    numpy_buf = np.frombuffer(result.data, dtype=result.data_type).reshape(
-        (tile_size, tile_size)
+    numpy_buf = core_tile_retrieval(
+        db=db,
+        cache=request.app.cache,
+        map=map,
+        band=band,
+        level=level,
+        y=y,
+        x=x,
+        request=request,
     )
+
+    if numpy_buf is None:
+        raise HTTPException(status_code=404, detail="Tile not found")
 
     with io.BytesIO() as output:
         renderer.render(output, numpy_buf, render_options=render_options)

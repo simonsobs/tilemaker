@@ -16,7 +16,14 @@ from .histogram import histogram_router
 from .maps import maps_router
 from .sources import sources_router
 
-app = FastAPI()
+async def lifespan(app: FastAPI):
+    """
+    Lifespan event handler for the FastAPI app.
+    """
+    app.cache = settings.create_cache()
+    yield  # This will run the app
+
+app = FastAPI(lifespan=lifespan)
 STATIC_DIRECTORY = Path(__file__).parent / "static"
 
 if settings.add_cors:
@@ -34,7 +41,6 @@ app.include_router(highlights_router)
 app.include_router(histogram_router)
 app.include_router(sources_router)
 app.include_router(maps_router)
-
 
 if settings.serve_frontend:
     # The index.html is actually in static. But if anyone wants to access it

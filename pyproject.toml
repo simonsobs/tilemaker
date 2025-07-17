@@ -24,7 +24,9 @@ dependencies = [
     "astropy",
     "fastapi-cache2",
     "typer",
-    "soauth"
+    "soauth",
+    "cachetools",
+    "pymemcache",
 ]
 
 [project.scripts]

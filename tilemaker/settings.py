@@ -38,8 +38,46 @@ class Settings(BaseSettings):
     soauth_public_key: str | None = None
     soauth_key_pair_type: str | None = None
 
+    # Caching settings
+    cache_type: Literal["in_memory", "memcached", "pass_through"] = "in_memory"
+    "Type of caching to use for tiles. Options are 'in_memory', 'memcached', or 'pass_through'."
+    memcached_host: str = "localhost"
+    "Host for the Memcached server."
+    memcached_port: int = 11211
+    "Port for the Memcached server."
+    memcached_client_pool_size: int = 16
+    "Number of connections in the Memcached client pool."
+    memcached_timeout_seconds: float = 0.5
+    "Timeout for Memcached operations in seconds."
+
     class Config:
         env_prefix = "TILEMAKER_"
+
+    def create_cache(self):
+        """
+        Create a cache instance based on the settings.
+        """
+        if self.cache_type == "in_memory":
+            from tilemaker.server.caching import InMemoryCache
+
+            return InMemoryCache()
+        elif self.cache_type == "memcached":
+            from tilemaker.server.caching import MemcachedCache
+            from pymemcache import serde
+            from pymemcache.client.base import PooledClient
+
+            client = PooledClient(
+                server=(self.memcached_host, self.memcached_port),
+                serde=serde.pickle_serde,
+                pool_size=self.memcached_client_pool_size,
+                timeout=self.memcached_timeout_seconds,
+                ignore_exc=True,
+            )
+            return MemcachedCache(client=client)
+        else:
+            from tilemaker.server.caching import PassThroughCache
+
+            return PassThroughCache()
 
 
 settings = Settings()
