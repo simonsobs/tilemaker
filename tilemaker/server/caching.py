@@ -5,9 +5,9 @@ Caches for tiles.
 import abc
 
 import numpy as np
+import structlog
 from cachetools import LFUCache
 from pymemcache.client.base import Client
-import structlog
 
 
 class TileNotFound(Exception):

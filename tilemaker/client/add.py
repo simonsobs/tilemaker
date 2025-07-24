@@ -158,7 +158,9 @@ def add_iqu_map(
     with db.get_session() as session:
         add = []
 
-        map_metadata = session.query(tilemaker.orm.Map).filter_by(name=map_name).one_or_none()
+        map_metadata = (
+            session.query(tilemaker.orm.Map).filter_by(name=map_name).one_or_none()
+        )
 
         if map_metadata is None:
             map_metadata = tilemaker.orm.Map(
@@ -171,11 +173,17 @@ def add_iqu_map(
 
             console.print("Found map:", map_metadata)
         else:
-            console.print(f"Map {map_name} already exists in the database, adding layers")
-        
-        if display_names and (len(display_names) != len(fits_file.individual_trees) and not intensity_only):
             console.print(
-                "Display names provided do not match the number of bands in the FITS file", len(display_names), len(fits_file.individual_trees)
+                f"Map {map_name} already exists in the database, adding layers"
+            )
+
+        if display_names and (
+            len(display_names) != len(fits_file.individual_trees) and not intensity_only
+        ):
+            console.print(
+                "Display names provided do not match the number of bands in the FITS file",
+                len(display_names),
+                len(fits_file.individual_trees),
             )
             return
 
@@ -323,7 +331,7 @@ def add_compton_map(
     console: Console,
     description: str = "No description provided",
     proprietary: bool = False,
-    display_name: str | None = None
+    display_name: str | None = None,
 ):
     import numpy as np
 

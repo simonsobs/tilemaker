@@ -43,7 +43,7 @@ def add_iqu(
     intensity_only: bool = False,
     units: str = "",
     proprietary: bool = False,
-    display_names: str | None = None
+    display_names: str | None = None,
 ):
     """
     Add an IQU map to the database.
@@ -62,7 +62,7 @@ def add_iqu(
         intensity_only,
         units if units else None,
         proprietary=proprietary,
-        display_names=display_names
+        display_names=display_names,
     )
 
 
