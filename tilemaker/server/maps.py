@@ -6,7 +6,14 @@ import io
 
 import numpy as np
 from astropy.io import fits
-from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    HTTPException,
+    Request,
+    Response,
+)
 from sqlalchemy import select
 from sqlalchemy.orm import subqueryload
 
@@ -108,6 +115,7 @@ def core_tile_retrieval(
     level: int,
     y: int,
     x: int,
+    bt: BackgroundTasks,
     request: Request,
 ):
     user_has_proprietary = allow_proprietary(request=request)
@@ -120,7 +128,7 @@ def core_tile_retrieval(
         return public_tile_cache
     except TileNotFound:
         pass
-    
+
     with db.get_session() as session:
         stmt = select(orm.Tile).where(
             orm.Tile.band_id == int(band),
@@ -141,7 +149,8 @@ def core_tile_retrieval(
         numpy_buf = None
 
     # Send her back to the cache
-    cache.set_cache(
+    bt.add_task(
+        cache.set_cache,
         band=int(band),
         x=int(x),
         y=int(y),
@@ -166,6 +175,7 @@ def get_tile(
     x: int,
     ext: str,
     request: Request,
+    bt: BackgroundTasks,
     render_options: RenderOptions = Depends(RenderOptions),
 ):
     """
@@ -206,6 +216,7 @@ def get_tile(
         y=y,
         x=x,
         request=request,
+        bt=bt,
     )
 
     if numpy_buf is None:
