@@ -158,7 +158,9 @@ def add_iqu_map(
     with db.get_session() as session:
         add = []
 
-        if (map_metadata := session.get(tilemaker.orm.Map, map_name)) is None:
+        map_metadata = session.query(tilemaker.orm.Map).filter_by(name=map_name).one_or_none()
+
+        if map_metadata is None:
             map_metadata = tilemaker.orm.Map(
                 name=map_name,
                 description=description,
@@ -169,12 +171,11 @@ def add_iqu_map(
 
             console.print("Found map:", map_metadata)
         else:
-            console.print(f"Map {map_name} already exists in the database")
-            return
+            console.print(f"Map {map_name} already exists in the database, adding layers")
         
         if display_names and (len(display_names) != len(fits_file.individual_trees) and not intensity_only):
             console.print(
-                "Display names provided do not match the number of bands in the FITS file."
+                "Display names provided do not match the number of bands in the FITS file", len(display_names), len(fits_file.individual_trees)
             )
             return
 
@@ -183,8 +184,9 @@ def add_iqu_map(
                 continue
 
             quantity = f"{QUANTITY_MAP.get(units, 'T')} ({str(fits_image.identifier)})"
+            frequency = f"{fits_image.header.get('FREQ', 'Unknown Frequency')}"
             display_name = display_names[index] if display_names else None
-            display_name = display_name or f"{fits_image.identifier} ({quantity})"
+            display_name = display_name or f"{quantity} ({frequency})"
 
             tile_size = fits_image.tile_size
             number_of_layers = fits_image.number_of_levels
