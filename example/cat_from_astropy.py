@@ -11,10 +11,6 @@ from tilemaker.client.add import CatalogIngestItem
 
 data = table.Table.read(sys.argv[1])
 
-import pdb
-
-pdb.set_trace()
-
 items = []
 
 for ra, dec, name, flux in zip(
