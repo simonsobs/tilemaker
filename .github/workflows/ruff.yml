@@ -1,7 +1,8 @@
 name: Formatting (Ruff) 🐶
 on: push
 jobs:
-  build:
+  format:
+    name: Run the Ruff Formatter 🐶
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
