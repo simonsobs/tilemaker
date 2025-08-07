@@ -180,15 +180,11 @@ class FITSSimpleLoader:
             *[x - 1 for x in self.world_full_array_size()]
         )
 
-        sanitize = lambda x: (
-            x[0].ra if x[0].ra < 180.0 * units.deg else x[0].ra - 360.0 * units.deg,
-            x[0].dec if x[0].dec < 90.0 * units.deg else x[0].dec - 180.0 * units.deg,
-        )
+        def sanitize(x):
+            return x[0].ra if x[0].ra < 180.0 * units.deg else x[0].ra - 360.0 * units.deg, x[0].dec if x[0].dec < 90.0 * units.deg else x[0].dec - 180.0 * units.deg
 
-        sanitize_nonscalar = lambda x: (
-            x.ra if x.ra < 180.0 * units.deg else x.ra - 360.0 * units.deg,
-            x.dec if x.dec < 90.0 * units.deg else x.dec - 180.0 * units.deg,
-        )
+        def sanitize_nonscalar(x):
+            return x.ra if x.ra < 180.0 * units.deg else x.ra - 360.0 * units.deg, x.dec if x.dec < 90.0 * units.deg else x.dec - 180.0 * units.deg
 
         try:
             return sanitize(top_right), sanitize(bottom_left)
@@ -245,8 +241,10 @@ class FITSSimpleLoader:
         ra_per_tile = RA_RANGE / 2 ** (zoom + 1)
         dec_per_tile = DEC_RANGE / 2 ** (zoom)
 
-        ra = lambda v: (ra_per_tile * v + RA_OFFSET)
-        dec = lambda v: (dec_per_tile * v + DEC_OFFSET)
+        def ra(v):
+            return ra_per_tile * v + RA_OFFSET
+        def dec(v):
+            return dec_per_tile * v + DEC_OFFSET
 
         def pix(v, w):
             return (ra(v), dec(w))
