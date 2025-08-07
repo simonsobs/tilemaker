@@ -106,6 +106,15 @@ def get_submap(
             hdu.writeto(output)
             return Response(content=output.getvalue(), media_type="image/fits")
 
+from tilemaker.providers.core import Tiles
+from tilemaker.providers.fits import BandInfo, FITSTileProvider, PullableTile
+from tilemaker.providers.caching import InMemoryCache
+
+bi = BandInfo.from_fits('/Users/borrow-adm/Downloads/actdr4dr6.fits', band_id=10, index=0)
+tc = InMemoryCache()
+tp = FITSTileProvider(bands=[bi])
+
+tiles = Tiles(pullable=[tc, tp], pushable=[tc])
 
 def core_tile_retrieval(
     db,
@@ -120,50 +129,56 @@ def core_tile_retrieval(
 ):
     user_has_proprietary = allow_proprietary(request=request)
 
-    # Check if the tile is in the cache
-    try:
-        public_tile_cache = cache.get_cache(
-            band, x, y, level, proprietary=user_has_proprietary
-        )
-        return public_tile_cache
-    except TileNotFound:
-        pass
+    tile, pushables = tiles.pull(PullableTile(band_id=10, x=x, y=y, level=level, grant=None))
 
-    with db.get_session() as session:
-        stmt = select(orm.Tile).where(
-            orm.Tile.band_id == int(band),
-            orm.Tile.level == int(level),
-            orm.Tile.y == int(y),
-            orm.Tile.x == int(x),
-        )
+    bt.add_task(
+        tiles.push,
+        pushables
+    )
+    # # Check if the tile is in the cache
+    # try:
+    #     public_tile_cache = cache.get_cache(
+    #         band, x, y, level, proprietary=user_has_proprietary
+    #     )
+    #     return public_tile_cache
+    # except TileNotFound:
+    #     pass
 
-        result = session.exec(stmt).one_or_none()
-        result = result[0]
-        tile_size = result.band.tile_size
+    # with db.get_session() as session:
+    #     stmt = select(orm.Tile).where(
+    #         orm.Tile.band_id == int(band),
+    #         orm.Tile.level == int(level),
+    #         orm.Tile.y == int(y),
+    #         orm.Tile.x == int(x),
+    #     )
 
-    if result is not None and result.data is not None:
-        numpy_buf = np.frombuffer(result.data, dtype=result.data_type).reshape(
-            (tile_size, tile_size)
-        )
-    else:
-        numpy_buf = None
+    #     result = session.exec(stmt).one_or_none()
+    #     result = result[0]
+    #     tile_size = result.band.tile_size
+
+    # if result is not None and result.data is not None:
+    #     numpy_buf = np.frombuffer(result.data, dtype=result.data_type).reshape(
+    #         (tile_size, tile_size)
+    #     )
+    # else:
+    #     numpy_buf = None
 
     # Send her back to the cache
-    bt.add_task(
-        cache.set_cache,
-        band=int(band),
-        x=int(x),
-        y=int(y),
-        level=int(level),
-        data=numpy_buf,
-        proprietary=result.proprietary,
-    )
+    # bt.add_task(
+    #     cache.set_cache,
+    #     band=int(band),
+    #     x=int(x),
+    #     y=int(y),
+    #     level=int(level),
+    #     data=numpy_buf,
+    #     proprietary=result.proprietary,
+    # )
 
-    # Critical -- otherwise non-proprietary users will get proprietary tiles
-    if result.proprietary and not user_has_proprietary:
-        return None
+    # # Critical -- otherwise non-proprietary users will get proprietary tiles
+    # if result.proprietary and not user_has_proprietary:
+    #     return None
 
-    return numpy_buf
+    return tile.data
 
 
 @maps_router.get("/{map}/{band}/{level}/{y}/{x}/tile.{ext}")

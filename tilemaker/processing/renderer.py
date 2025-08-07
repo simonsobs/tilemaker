@@ -20,7 +20,7 @@ class RenderOptions(BaseModel):
     "Color map range maximum, defaults to 100"
     log_norm: bool = Field(default=False)
     "Whether to use a log normalization, defaults to False."
-    clip: bool = Field(default=True)
+    clip: bool = Field(default=False)
     "Whether to clip values outside of the range, defaults to True."
     flip: bool = Field(default=False)
     "Whether to render the entire field using 360 -> RA convention (true) or -180 < RA < 180 (false)."
@@ -81,14 +81,12 @@ class Renderer:
             # Render with colour mapping, this is 'raw data'.
             cmap = plt.get_cmap(render_options.cmap)
             cmap.set_bad("#dddddd", 0.0)
+            mapped = cmap(render_options.norm(buffer))
             plt.imsave(
                 fname,
-                render_options.norm(buffer),
-                cmap=cmap,
+                mapped,
                 pil_kwargs=self.pil_kwargs,
                 format=self.format,
-                vmin=0.0,
-                vmax=1.0,
                 origin="lower",
             )
         else:
