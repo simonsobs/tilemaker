@@ -2,25 +2,22 @@
 Tile providers that read directly from FITS files.
 """
 
+import math
 from pathlib import Path
+from time import perf_counter
 
+import astropy.units as u
 import numpy as np
-from pydantic import BaseModel
-from .core import TileNotFoundError, TileProvider, PullableTile, PushableTile
-import structlog
-from structlog.types import FilteringBoundLogger
-from astropy.io import fits
 from astropy import units
+from astropy.coordinates import SkyCoord
+from astropy.io import fits
+from astropy.io.fits import ImageHDU
 from astropy.nddata import Cutout2D, NoOverlapError
 from astropy.wcs import WCS
-from time import perf_counter
-import math
+from pydantic import BaseModel
+from structlog.types import FilteringBoundLogger
 
-import numpy as np
-from astropy.wcs import WCS
-from astropy.io.fits import ImageHDU
-from astropy.coordinates import SkyCoord
-import astropy.units as u
+from .core import PullableTile, PushableTile, TileNotFoundError, TileProvider
 
 
 def extract_patch_from_fits(
@@ -67,7 +64,7 @@ def extract_patch_from_fits(
         )
     except NoOverlapError:
         end = perf_counter()
-        log = log.bind(dt=end-start)
+        log = log.bind(dt=end - start)
         log.debug("fits.no_data")
         return None
 
@@ -76,9 +73,9 @@ def extract_patch_from_fits(
         cutout = cutout.data[::subsample_every, ::subsample_every]
     else:
         cutout = cutout.data
-    
+
     end = perf_counter()
-    log.debug("fits.pulled", dt=end-start)
+    log.debug("fits.pulled", dt=end - start)
 
     return cutout
 
@@ -160,7 +157,12 @@ class FITSTileProvider(TileProvider):
     bands: dict[int, BandInfo]
     subsample: bool
 
-    def __init__(self, bands: list[BandInfo], subsample: bool = True, internal_provider_id: str | None = None):
+    def __init__(
+        self,
+        bands: list[BandInfo],
+        subsample: bool = True,
+        internal_provider_id: str | None = None,
+    ):
         self.bands = {x.band_id: x for x in bands}
         self.subsample = subsample
         super().__init__(internal_provider_id=internal_provider_id)
@@ -176,7 +178,7 @@ class FITSTileProvider(TileProvider):
 
         def pix(v, w):
             return ((ra_per_tile * v + RA_OFFSET), (dec_per_tile * w + DEC_OFFSET))
-        
+
         # Our map viewer operates in the -180 -> 180 space. However, the underlying
         # astropy wcs lives in 360 -> 0 RA space. All operations internally in this
         # code are done in astropy's co-ordinate system. So we need to flip/fold our
@@ -223,7 +225,7 @@ class FITSTileProvider(TileProvider):
                 **self._get_tile_info(tile=tile),
                 index=band.index,
                 subsample_every=subsample_every,
-                log=log
+                log=log,
             )
 
         return PushableTile(
@@ -233,7 +235,7 @@ class FITSTileProvider(TileProvider):
             level=tile.level,
             grant=band.grant,
             data=patch,
-            source=self.internal_provider_id
+            source=self.internal_provider_id,
         )
 
     def push(self, tile: PushableTile):

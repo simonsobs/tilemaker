@@ -4,7 +4,6 @@ Endpoints for maps.
 
 import io
 
-import numpy as np
 from astropy.io import fits
 from fastapi import (
     APIRouter,
@@ -20,7 +19,6 @@ from sqlalchemy.orm import subqueryload
 from tilemaker.processing.extractor import extract
 from tilemaker.server.caching import (
     TileCache,
-    TileNotFound,
 )
 
 from .. import database as db
@@ -106,15 +104,19 @@ def get_submap(
             hdu.writeto(output)
             return Response(content=output.getvalue(), media_type="image/fits")
 
+
+from tilemaker.providers.caching import InMemoryCache
 from tilemaker.providers.core import Tiles
 from tilemaker.providers.fits import BandInfo, FITSTileProvider, PullableTile
-from tilemaker.providers.caching import InMemoryCache
 
-bi = BandInfo.from_fits('/Users/borrow-adm/Downloads/actdr4dr6.fits', band_id=10, index=0)
+bi = BandInfo.from_fits(
+    "/Users/borrow-adm/Downloads/actdr4dr6.fits", band_id=10, index=0
+)
 tc = InMemoryCache()
 tp = FITSTileProvider(bands=[bi])
 
 tiles = Tiles(pullable=[tc, tp], pushable=[tc])
+
 
 def core_tile_retrieval(
     db,
@@ -127,14 +129,13 @@ def core_tile_retrieval(
     bt: BackgroundTasks,
     request: Request,
 ):
-    user_has_proprietary = allow_proprietary(request=request)
+    allow_proprietary(request=request)
 
-    tile, pushables = tiles.pull(PullableTile(band_id=10, x=x, y=y, level=level, grant=None))
-
-    bt.add_task(
-        tiles.push,
-        pushables
+    tile, pushables = tiles.pull(
+        PullableTile(band_id=10, x=x, y=y, level=level, grant=None)
     )
+
+    bt.add_task(tiles.push, pushables)
     # # Check if the tile is in the cache
     # try:
     #     public_tile_cache = cache.get_cache(
