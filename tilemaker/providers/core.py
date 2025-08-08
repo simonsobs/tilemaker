@@ -20,7 +20,7 @@ class PullableTile(BaseModel):
     x: int
     y: int
     level: int
-    grant: str | None
+    grants: set[str]
 
     @property
     def hash(self) -> str:
@@ -73,6 +73,8 @@ class Tiles:
             try:
                 data = provider.pull(tile)
                 pushables.append(data)
+                if data.grant and data.grant not in tile.grants:
+                    raise TileNotFoundError
                 break
             except TileNotFoundError:
                 continue

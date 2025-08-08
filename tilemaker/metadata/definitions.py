@@ -74,7 +74,23 @@ from typing import Literal
 from astropy import units
 from astropy.io import fits
 from astropy.wcs import WCS
-from pydantic import BaseModel
+from pydantic import BaseModel, RootModel
+
+
+def parse_config(config: Path) -> list["MapGroup"]:
+    MapGroupList = RootModel[list[MapGroup]]
+
+    with open(config, "r") as handle:
+        mgl = MapGroupList.model_validate_json(handle.read()).root
+
+    return mgl
+
+
+class AuthenticatedModel(BaseModel):
+    grant: str | None = None
+
+    def auth(self, grants: set[str]):
+        return self.grant is None or self.grant in grants
 
 
 class LayerProvider(BaseModel):
@@ -165,11 +181,10 @@ class FITSLayerProvider(LayerProvider):
         return tile_size, number_of_levels
 
 
-class Layer(BaseModel):
+class Layer(AuthenticatedModel):
     layer_id: str
     name: str
     description: str | None = None
-    grant: str | None = None
 
     provider: FITSLayerProvider
 
@@ -200,25 +215,24 @@ class Layer(BaseModel):
             self.tile_size, self.number_of_levels = self.provider.calculate_tile_size()
 
 
-class Band(BaseModel):
+class Band(AuthenticatedModel):
+    band_id: str
     name: str
     description: str
-    grant: str | None = None
 
     layers: list[Layer]
 
 
-class Map(BaseModel):
+class Map(AuthenticatedModel):
+    map_id: str
     name: str
     description: str
-    grant: str | None = None
 
     bands: list[Band]
 
 
-class MapGroup(BaseModel):
+class MapGroup(AuthenticatedModel):
     name: str
     description: str
-    grant: str | None = None
 
     maps: list[Map]

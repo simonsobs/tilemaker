@@ -25,7 +25,14 @@ async def lifespan(app: FastAPI):
     yield  # This will run the app
 
 
-app = FastAPI(lifespan=lifespan)
+tags_metadata = [
+    {
+        "name": "Maps and Tiles",
+        "description": "Operations to retrieve metadata about maps, bands, and layers, as well as the tiles themselves.",
+    },
+]
+
+app = FastAPI(lifespan=lifespan, openapi_tags=tags_metadata)
 STATIC_DIRECTORY = Path(__file__).parent / "static"
 
 if settings.add_cors:
