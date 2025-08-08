@@ -2,6 +2,7 @@
 Create a set of metadata directly from a provider.
 """
 
+import os
 from hashlib import md5
 from pathlib import Path
 from typing import Any
@@ -10,7 +11,38 @@ from astropy import units
 from astropy.io import fits
 from pydantic import BaseModel
 
-from tilemaker.metadata.definitions import FITSLayerProvider, Layer
+from tilemaker.metadata.definitions import Band, FITSLayerProvider, Layer, Map, MapGroup
+
+
+def filename_to_id(filename: str | Path) -> str:
+    return md5(str(filename).encode("utf-8")).hexdigest()[:6]
+
+
+def map_group_from_fits(
+    filenames: list[Path],
+):
+    maps = []
+    for filename in filenames:
+        filename = Path(filename)
+        maps.append(
+            Map(
+                map_id=filename_to_id(filename),
+                name=filename.name,
+                description="No description",
+                bands=[
+                    Band(
+                        band_id=f"band-{filename_to_id(filename)}",
+                        name="Auto-Populated",
+                        description="Auto-populated band",
+                        layers=layers_from_fits(filename=filename),
+                    )
+                ],
+            )
+        )
+
+    return MapGroup(
+        name="Auto-Populated", description="No description provided", maps=maps
+    )
 
 
 def layers_from_fits(
@@ -37,10 +69,7 @@ def layers_from_fits(
     layers = []
 
     for i, pl in enumerate(discriminator.proto_layers):
-        layer_id = (
-            f"{discriminator.hdu}-{i}-"
-            + md5(str(filename).encode("utf-8")).hexdigest()[:6]
-        )
+        layer_id = f"{discriminator.hdu}-{i}-" + filename_to_id(filename)
         data = pl.convert_data(map_units=map_units)
 
         layers.append(
@@ -49,7 +78,7 @@ def layers_from_fits(
                 **data,
                 provider=FITSLayerProvider(
                     provider_type="fits",
-                    filename=filename,
+                    filename=Path(filename).absolute(),
                     hdu=discriminator.hdu,
                     index=pl.index,
                 ),
@@ -92,7 +121,8 @@ class ProtoLayer(BaseModel):
 class FITSDiscriminator(BaseModel):
     hdu: int = 0
     label: str
-    header_require: dict[str, Any]
+    filename_contains: list[str] = []
+    header_require: dict[str, Any] = {}
     proto_layers: list[ProtoLayer]
 
     def check(self, data: fits.HDUList) -> bool:
@@ -107,13 +137,20 @@ class FITSDiscriminator(BaseModel):
             if not value or value != v:
                 return False
 
-        return True
+        if not self.filename_contains:
+            return True
+
+        for item in self.filename_contains:
+            if item in os.path.basename(data.filename()):
+                return True
+
+        return False
 
 
 DISCRIMINATORS = {
     "iqu": FITSDiscriminator(
         label="iqu",
-        header_require={"POLCCONV": "IAU", "CTYPE3": "STOKES", "NAXIS3": 3},
+        header_require={"NAXIS3": 3},
         proto_layers=[
             ProtoLayer(
                 name="I",
@@ -146,5 +183,37 @@ DISCRIMINATORS = {
                 index=2,
             ),
         ],
-    )
+    ),
+    "ivar": FITSDiscriminator(
+        label="ivar",
+        filename_contains=["ivar", "div"],
+        proto_layers=[
+            ProtoLayer(
+                name="IVar",
+                description="Inverse-variance map",
+                quantity="ivar",
+                units="K^-2",
+                vmin=100000000.0,
+                vmax=2000000000.0,
+                cmap="inferno",
+                index=None,
+            )
+        ],
+    ),
+    "mask": FITSDiscriminator(
+        label="mask",
+        filename_contains=["mask"],
+        proto_layers=[
+            ProtoLayer(
+                name="Mask",
+                description="Sky mask",
+                quantity="mask",
+                units=None,
+                vmin=0.0,
+                vmax=1.0,
+                cmap="viridis",
+                index=None,
+            )
+        ],
+    ),
 }
