@@ -2,20 +2,19 @@
 Tile providers that read directly from FITS files.
 """
 
-import math
-from pathlib import Path
+from itertools import chain
 from time import perf_counter
 
 import astropy.units as u
 import numpy as np
-from astropy import units
 from astropy.coordinates import SkyCoord
 from astropy.io import fits
 from astropy.io.fits import ImageHDU
 from astropy.nddata import Cutout2D, NoOverlapError
 from astropy.wcs import WCS
-from pydantic import BaseModel
 from structlog.types import FilteringBoundLogger
+
+from tilemaker.metadata.definitions import FITSLayerProvider, Layer, MapGroup
 
 from .core import PullableTile, PushableTile, TileNotFoundError, TileProvider
 
@@ -80,90 +79,28 @@ def extract_patch_from_fits(
     return cutout
 
 
-def calculate_tile_size(file: Path, index: int | None, hdu: int = 0) -> tuple[int, int]:
-    # Need to figure out how big the whole 'map' is, i.e. moving it up
-    # so that it fills the whole space.
-    with fits.open(file) as h:
-        wcs = WCS(h[hdu].header)
-
-    scale = wcs.proj_plane_pixel_scales()
-    scale_x_deg = scale[0]
-    scale_y_deg = scale[1]
-
-    # The full sky spans 360 deg in RA, 180 deg in Dec
-    map_size_x = int(np.floor(360 * units.deg / scale_x_deg))
-    map_size_y = int(np.floor(180 * units.deg / scale_y_deg))
-
-    max_size = max(map_size_x, map_size_y)
-
-    # See if 256 fits.
-    if (map_size_x % 256 == 0) and (map_size_y % 256 == 0):
-        tile_size = 256
-        number_of_levels = int(math.log2(max_size // 256))
-        return tile_size, number_of_levels
-
-    # Oh no, remove all the powers of two until
-    # we get an odd number.
-    this_tile_size = map_size_y
-
-    # Also don't make it too small.
-    while this_tile_size % 2 == 0 and this_tile_size > 512:
-        this_tile_size = this_tile_size // 2
-
-    number_of_levels = int(math.log2(max_size // this_tile_size))
-    tile_size = this_tile_size
-
-    return tile_size, number_of_levels
-
-
-class LayerInfo(BaseModel):
-    layer_id: int
-    grant: str | None
-
-    file: Path
-    hdu: int
-    tile_size: int
-    number_of_levels: int
-    index: int | None
-
-    @classmethod
-    def from_fits(
-        cls,
-        file: Path,
-        layer_id: int,
-        index: int | None,
-        hdu: int = 0,
-        grant: str | None = None,
-    ):
-        """
-        Generate the required BandInfo from the file.
-        """
-        tile_size, number_of_levels = calculate_tile_size(
-            file=file, index=index, hdu=hdu
-        )
-
-        return cls(
-            layer_id=layer_id,
-            grant=grant,
-            file=file,
-            hdu=hdu,
-            tile_size=tile_size,
-            number_of_levels=number_of_levels,
-            index=index,
-        )
-
-
 class FITSTileProvider(TileProvider):
-    layers: dict[int, LayerInfo]
+    layers: dict[int, Layer]
     subsample: bool
 
     def __init__(
         self,
-        bands: list[LayerInfo],
+        map_groups: list[MapGroup],
         subsample: bool = True,
         internal_provider_id: str | None = None,
     ):
-        self.layers = {x.layer_id: x for x in bands}
+        self.layers = {
+            x.layer_id: x
+            for x in filter(
+                lambda x: isinstance(x.provider, FITSLayerProvider),
+                chain.from_iterable(
+                    band.layers
+                    for map_group in map_groups
+                    for map in map_group.maps
+                    for band in map.bands
+                ),
+            )
+        }
         self.subsample = subsample
         super().__init__(internal_provider_id=internal_provider_id)
 
@@ -203,13 +140,13 @@ class FITSTileProvider(TileProvider):
     def pull(self, tile: PullableTile):
         log = self.logger.bind(tile_hash=tile.hash)
 
-        band = self.layers.get(tile.layer_id, None)
+        layer = self.layers.get(tile.layer_id, None)
 
-        if not band:
-            log.debug("fits.band_not_found")
+        if not layer:
+            log.debug("fits.layer_not_found")
             raise TileNotFoundError(f"Band {tile.layer_id} not available")
 
-        level_difference = band.number_of_levels - tile.level - 1
+        level_difference = layer.number_of_levels - tile.level - 1
 
         if not self.subsample and level_difference:
             log.debug("fits.not_subsampled")
@@ -217,13 +154,13 @@ class FITSTileProvider(TileProvider):
 
         subsample_every = 2 ** (level_difference)
 
-        with fits.open(band.file) as h:
-            hdu = h[band.hdu]
+        with fits.open(layer.provider.filename) as h:
+            hdu = h[layer.provider.hdu]
 
             patch = extract_patch_from_fits(
                 hdu=hdu,
                 **self._get_tile_info(tile=tile),
-                index=band.index,
+                index=layer.provider.index,
                 subsample_every=subsample_every,
                 log=log,
             )
@@ -233,7 +170,7 @@ class FITSTileProvider(TileProvider):
             x=tile.x,
             y=tile.y,
             level=tile.level,
-            grant=band.grant,
+            grant=layer.grant,
             data=patch,
             source=self.internal_provider_id,
         )

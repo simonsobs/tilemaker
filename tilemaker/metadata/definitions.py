@@ -67,13 +67,21 @@ Example:
 ```
 """
 
+import math
 from pathlib import Path
 from typing import Literal
+
+from astropy import units
+from astropy.io import fits
+from astropy.wcs import WCS
 from pydantic import BaseModel
 
 
 class LayerProvider(BaseModel):
     provider_type: Literal["fits"] = "fits"
+
+    def get_bbox(self) -> dict[str, float]:
+        return
 
 
 class FITSLayerProvider(LayerProvider):
@@ -82,14 +90,89 @@ class FITSLayerProvider(LayerProvider):
     hdu: int = 0
     index: int | None = None
 
+    def get_bbox(self) -> dict[str, float]:
+        with fits.open(self.filename) as handle:
+            data = handle[self.hdu]
+            wcs = WCS(header=data.header)
+
+            top_right = wcs.array_index_to_world(*[0] * data.header.get("NAXIS", 2))
+
+            bottom_left = wcs.array_index_to_world(*data.data.shape)
+
+            def sanitize(x):
+                return (
+                    x[0].ra
+                    if x[0].ra < 180.0 * units.deg
+                    else x[0].ra - 360.0 * units.deg
+                ), (
+                    x[0].dec
+                    if x[0].dec < 90.0 * units.deg
+                    else x[0].dec - 180.0 * units.deg
+                )
+
+            def sanitize_nonscalar(x):
+                return x.ra if x.ra < 180.0 * units.deg else x.ra - 360.0 * units.deg, (
+                    x.dec if x.dec < 90.0 * units.deg else x.dec - 180.0 * units.deg
+                )
+
+            try:
+                tr = sanitize(top_right)
+                bl = sanitize(bottom_left)
+            except TypeError:
+                tr = sanitize_nonscalar(top_right)
+                bl = sanitize_nonscalar(bottom_left)
+
+        return {
+            "bounding_left": bl[0].value,
+            "bounding_right": tr[0].value,
+            "bounding_top": tr[1].value,
+            "bounding_bottom": bl[1].value,
+        }
+
+    def calculate_tile_size(self) -> tuple[int, int]:
+        # Need to figure out how big the whole 'map' is, i.e. moving it up
+        # so that it fills the whole space.
+        with fits.open(self.filename) as h:
+            wcs = WCS(h[self.hdu].header)
+
+        scale = wcs.proj_plane_pixel_scales()
+        scale_x_deg = scale[0]
+        scale_y_deg = scale[1]
+
+        # The full sky spans 360 deg in RA, 180 deg in Dec
+        map_size_x = int(math.floor(360 * units.deg / scale_x_deg))
+        map_size_y = int(math.floor(180 * units.deg / scale_y_deg))
+
+        max_size = max(map_size_x, map_size_y)
+
+        # See if 256 fits.
+        if (map_size_x % 256 == 0) and (map_size_y % 256 == 0):
+            tile_size = 256
+            number_of_levels = int(math.log2(max_size // 256))
+            return tile_size, number_of_levels
+
+        # Oh no, remove all the powers of two until
+        # we get an odd number.
+        this_tile_size = map_size_y
+
+        # Also don't make it too small.
+        while this_tile_size % 2 == 0 and this_tile_size > 512:
+            this_tile_size = this_tile_size // 2
+
+        number_of_levels = int(math.log2(max_size // this_tile_size))
+        tile_size = this_tile_size
+
+        return tile_size, number_of_levels
+
 
 class Layer(BaseModel):
+    layer_id: str
     name: str
-    description: str
+    description: str | None = None
     grant: str | None = None
 
-    provider: LayerProvider
-    
+    provider: FITSLayerProvider
+
     bounding_left: float | None = None
     bounding_right: float | None = None
     bounding_top: float | None = None
@@ -98,9 +181,23 @@ class Layer(BaseModel):
     quantity: str | None = None
     units: str | None = None
 
+    number_of_levels: int | None = None
+    tile_size: int | None = None
+
     vmin: float | None = None
     vmax: float | None = None
     cmap: str | None = None
+
+    def model_post_init(self, _):
+        if self.bounding_left is None or self.bounding_right is None:
+            bbox = self.provider.get_bbox()
+            self.bounding_left = bbox["bounding_left"]
+            self.bounding_right = bbox["bounding_right"]
+            self.bounding_top = bbox["bounding_top"]
+            self.bounding_bottom = bbox["bounding_bottom"]
+
+        if self.tile_size is None or self.number_of_levels is None:
+            self.tile_size, self.number_of_levels = self.provider.calculate_tile_size()
 
 
 class Band(BaseModel):
@@ -125,7 +222,3 @@ class MapGroup(BaseModel):
     grant: str | None = None
 
     maps: list[Map]
-
-
-
-

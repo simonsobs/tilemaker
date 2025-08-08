@@ -16,6 +16,7 @@ from fastapi import (
 from sqlalchemy import select
 from sqlalchemy.orm import subqueryload
 
+from tilemaker.metadata.definitions import MapGroup
 from tilemaker.processing.extractor import extract
 from tilemaker.server.caching import (
     TileCache,
@@ -30,6 +31,10 @@ from .auth import allow_proprietary, filter_by_proprietary
 renderer = Renderer(format="webp")
 
 maps_router = APIRouter(prefix="/maps")
+
+
+with open("sample.json", "r") as handle:
+    metadata = MapGroup.model_validate_json(handle.read())
 
 
 @maps_router.get("")
@@ -107,13 +112,10 @@ def get_submap(
 
 from tilemaker.providers.caching import InMemoryCache
 from tilemaker.providers.core import Tiles
-from tilemaker.providers.fits import LayerInfo, FITSTileProvider, PullableTile
+from tilemaker.providers.fits import FITSTileProvider, PullableTile
 
-bi = LayerInfo.from_fits(
-    "./actdr4dr6.fits",layer_id=10, index=0
-)
 tc = InMemoryCache()
-tp = FITSTileProvider(bands=[bi])
+tp = FITSTileProvider(map_groups=[metadata])
 
 tiles = Tiles(pullable=[tc, tp], pushable=[tc])
 
@@ -132,7 +134,7 @@ def core_tile_retrieval(
     allow_proprietary(request=request)
 
     tile, pushables = tiles.pull(
-        PullableTile(layer_id=10, x=x, y=y, level=level, grant=None)
+        PullableTile(layer_id=band, x=x, y=y, level=level, grant=None)
     )
 
     bt.add_task(tiles.push, pushables)

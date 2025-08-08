@@ -181,10 +181,17 @@ class FITSSimpleLoader:
         )
 
         def sanitize(x):
-            return x[0].ra if x[0].ra < 180.0 * units.deg else x[0].ra - 360.0 * units.deg, x[0].dec if x[0].dec < 90.0 * units.deg else x[0].dec - 180.0 * units.deg
+            return x[0].ra if x[0].ra < 180.0 * units.deg else x[
+                0
+            ].ra - 360.0 * units.deg, x[0].dec if x[0].dec < 90.0 * units.deg else x[
+                0
+            ].dec - 180.0 * units.deg
 
         def sanitize_nonscalar(x):
-            return x.ra if x.ra < 180.0 * units.deg else x.ra - 360.0 * units.deg, x.dec if x.dec < 90.0 * units.deg else x.dec - 180.0 * units.deg
+            return (
+                x.ra if x.ra < 180.0 * units.deg else x.ra - 360.0 * units.deg,
+                x.dec if x.dec < 90.0 * units.deg else x.dec - 180.0 * units.deg,
+            )
 
         try:
             return sanitize(top_right), sanitize(bottom_left)
@@ -243,6 +250,7 @@ class FITSSimpleLoader:
 
         def ra(v):
             return ra_per_tile * v + RA_OFFSET
+
         def dec(v):
             return dec_per_tile * v + DEC_OFFSET
 

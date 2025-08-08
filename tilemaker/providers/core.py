@@ -16,7 +16,7 @@ class TileNotFoundError(Exception):
 
 
 class PullableTile(BaseModel):
-    layer_id: int
+    layer_id: str
     x: int
     y: int
     level: int
@@ -28,7 +28,7 @@ class PullableTile(BaseModel):
 
 
 class PushableTile(BaseModel):
-    layer_id: int
+    layer_id: str
     x: int
     y: int
     level: int
