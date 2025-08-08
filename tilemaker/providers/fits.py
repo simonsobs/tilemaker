@@ -116,8 +116,8 @@ def calculate_tile_size(file: Path, index: int | None, hdu: int = 0) -> tuple[in
     return tile_size, number_of_levels
 
 
-class BandInfo(BaseModel):
-    band_id: int
+class LayerInfo(BaseModel):
+    layer_id: int
     grant: str | None
 
     file: Path
@@ -130,7 +130,7 @@ class BandInfo(BaseModel):
     def from_fits(
         cls,
         file: Path,
-        band_id: int,
+        layer_id: int,
         index: int | None,
         hdu: int = 0,
         grant: str | None = None,
@@ -143,7 +143,7 @@ class BandInfo(BaseModel):
         )
 
         return cls(
-            band_id=band_id,
+            layer_id=layer_id,
             grant=grant,
             file=file,
             hdu=hdu,
@@ -154,16 +154,16 @@ class BandInfo(BaseModel):
 
 
 class FITSTileProvider(TileProvider):
-    bands: dict[int, BandInfo]
+    layers: dict[int, LayerInfo]
     subsample: bool
 
     def __init__(
         self,
-        bands: list[BandInfo],
+        bands: list[LayerInfo],
         subsample: bool = True,
         internal_provider_id: str | None = None,
     ):
-        self.bands = {x.band_id: x for x in bands}
+        self.layers = {x.layer_id: x for x in bands}
         self.subsample = subsample
         super().__init__(internal_provider_id=internal_provider_id)
 
@@ -203,11 +203,11 @@ class FITSTileProvider(TileProvider):
     def pull(self, tile: PullableTile):
         log = self.logger.bind(tile_hash=tile.hash)
 
-        band = self.bands.get(tile.band_id, None)
+        band = self.layers.get(tile.layer_id, None)
 
         if not band:
             log.debug("fits.band_not_found")
-            raise TileNotFoundError(f"Band {tile.band_id} not available")
+            raise TileNotFoundError(f"Band {tile.layer_id} not available")
 
         level_difference = band.number_of_levels - tile.level - 1
 
@@ -229,7 +229,7 @@ class FITSTileProvider(TileProvider):
             )
 
         return PushableTile(
-            band_id=tile.band_id,
+            layer_id=tile.layer_id,
             x=tile.x,
             y=tile.y,
             level=tile.level,

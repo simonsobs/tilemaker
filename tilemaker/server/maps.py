@@ -107,10 +107,10 @@ def get_submap(
 
 from tilemaker.providers.caching import InMemoryCache
 from tilemaker.providers.core import Tiles
-from tilemaker.providers.fits import BandInfo, FITSTileProvider, PullableTile
+from tilemaker.providers.fits import LayerInfo, FITSTileProvider, PullableTile
 
-bi = BandInfo.from_fits(
-    "/Users/borrow-adm/Downloads/actdr4dr6.fits", band_id=10, index=0
+bi = LayerInfo.from_fits(
+    "./actdr4dr6.fits",layer_id=10, index=0
 )
 tc = InMemoryCache()
 tp = FITSTileProvider(bands=[bi])
@@ -132,7 +132,7 @@ def core_tile_retrieval(
     allow_proprietary(request=request)
 
     tile, pushables = tiles.pull(
-        PullableTile(band_id=10, x=x, y=y, level=level, grant=None)
+        PullableTile(layer_id=10, x=x, y=y, level=level, grant=None)
     )
 
     bt.add_task(tiles.push, pushables)

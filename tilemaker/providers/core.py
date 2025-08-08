@@ -16,7 +16,7 @@ class TileNotFoundError(Exception):
 
 
 class PullableTile(BaseModel):
-    band_id: int
+    layer_id: int
     x: int
     y: int
     level: int
@@ -24,11 +24,11 @@ class PullableTile(BaseModel):
 
     @property
     def hash(self) -> str:
-        return f"{self.band_id}-{self.x}-{self.y}-{self.level}"
+        return f"{self.layer_id}-{self.x}-{self.y}-{self.level}"
 
 
 class PushableTile(BaseModel):
-    band_id: int
+    layer_id: int
     x: int
     y: int
     level: int
@@ -38,7 +38,7 @@ class PushableTile(BaseModel):
 
     @property
     def hash(self) -> str:
-        return f"{self.band_id}-{self.x}-{self.y}-{self.level}"
+        return f"{self.layer_id}-{self.x}-{self.y}-{self.level}"
 
 
 class TileProvider(ABC):
