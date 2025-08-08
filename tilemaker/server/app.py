@@ -21,7 +21,19 @@ async def lifespan(app: FastAPI):
     """
     Lifespan event handler for the FastAPI app.
     """
-    app.cache = settings.create_cache()
+
+    from tilemaker.metadata.definitions import parse_config
+    from tilemaker.providers.caching import InMemoryCache
+    from tilemaker.providers.core import Tiles
+    from tilemaker.providers.fits import FITSTileProvider
+
+    if not hasattr(app, "config"):
+        app.config = parse_config("sample.json")
+
+    tc = InMemoryCache()
+    tp = FITSTileProvider(map_groups=app.config)
+    app.tiles = Tiles(pullable=[tc, tp], pushable=[tc])
+
     yield  # This will run the app
 
 

@@ -225,6 +225,21 @@ def dev(host: str = "127.0.0.1", port: int = 8000):
     run(app, host=host, port=port)
 
 
+@APP.command()
+def open(filenames: list[Path], host: str = "127.0.0.1", port: int = 8000):
+    """
+    Start the development/user-hosted server for tilemaker.
+    """
+    from uvicorn import run
+
+    from tilemaker.metadata.generation import map_group_from_fits
+    from tilemaker.server import app
+
+    app.config = [map_group_from_fits(filenames)]
+
+    run(app, host=host, port=port)
+
+
 def main():
     global APP
 

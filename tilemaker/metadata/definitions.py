@@ -112,8 +112,7 @@ class FITSLayerProvider(LayerProvider):
             wcs = WCS(header=data.header)
 
             top_right = wcs.array_index_to_world(*[0] * data.header.get("NAXIS", 2))
-
-            bottom_left = wcs.array_index_to_world(*data.data.shape)
+            bottom_left = wcs.array_index_to_world(*[x - 1 for x in data.data.shape])
 
             def sanitize(x):
                 return (

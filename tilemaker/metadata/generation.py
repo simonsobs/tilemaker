@@ -7,6 +7,7 @@ from hashlib import md5
 from pathlib import Path
 from typing import Any
 
+import structlog
 from astropy import units
 from astropy.io import fits
 from pydantic import BaseModel
@@ -40,6 +41,8 @@ def map_group_from_fits(
             )
         )
 
+    print(maps)
+
     return MapGroup(
         name="Auto-Populated", description="No description provided", maps=maps
     )
@@ -50,17 +53,23 @@ def layers_from_fits(
     force: str | None = None,
     unit_override: str | None = None,
 ) -> list[Layer]:
+    log = structlog.get_logger()
+    log = log.bind(filename=filename)
     data = fits.open(filename)
 
     if force:
+        log = log.bind(discriminator=force)
         discriminator = DISCRIMINATORS[force]
     else:
         passed = False
         for discriminator in DISCRIMINATORS.values():
             passed = discriminator.check(data)
             if passed:
+                log = log.bind(discriminator=discriminator.label)
+                log.info("discriminator.passed")
                 break
         if not passed:
+            log.warning("discrimination.failed")
             raise ValueError(f"Unable to determine map type of {filename}")
 
     header = data[discriminator.hdu].header
@@ -70,6 +79,7 @@ def layers_from_fits(
 
     for i, pl in enumerate(discriminator.proto_layers):
         layer_id = f"{discriminator.hdu}-{i}-" + filename_to_id(filename)
+        log = log.bind(layer_id=layer_id)
         data = pl.convert_data(map_units=map_units)
 
         layers.append(
@@ -84,6 +94,7 @@ def layers_from_fits(
                 ),
             )
         )
+        log.info("layer.success")
 
     return layers
 

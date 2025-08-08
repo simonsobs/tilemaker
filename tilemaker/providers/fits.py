@@ -50,7 +50,7 @@ def extract_patch_from_fits(
     if index is not None:
         pre_sel = np.s_[index, :, :]
     else:
-        pre_sel = np.s_
+        pre_sel = np.s_[:, :]
 
     start = perf_counter()
     try:

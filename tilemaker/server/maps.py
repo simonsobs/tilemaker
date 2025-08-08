@@ -13,10 +13,8 @@ from fastapi import (
     Response,
 )
 
-from tilemaker.metadata.definitions import MapGroup, parse_config
-from tilemaker.providers.caching import InMemoryCache
-from tilemaker.providers.core import Tiles
-from tilemaker.providers.fits import FITSTileProvider, PullableTile
+from tilemaker.metadata.definitions import MapGroup
+from tilemaker.providers.fits import PullableTile
 
 from ..processing.renderer import Renderer, RenderOptions
 from .auth import allow_proprietary
@@ -24,14 +22,6 @@ from .auth import allow_proprietary
 renderer = Renderer(format="webp")
 
 maps_router = APIRouter(prefix="/maps", tags=["Maps and Tiles"])
-
-metadata = parse_config("sample.json")
-
-# TODO: Refactor as dependencies.
-
-tc = InMemoryCache()
-tp = FITSTileProvider(map_groups=metadata)
-tiles = Tiles(pullable=[tc, tp], pushable=[tc])
 
 
 @maps_router.get(
@@ -41,7 +31,7 @@ tiles = Tiles(pullable=[tc, tp], pushable=[tc])
     description="Retrieve a list of MapGroup shaped objects, each containing a list of Maps, with a list of Bands, and finally a list of Layers.",
 )
 def get_maps(request: Request):
-    return [x for x in metadata if x.auth(request.auth.scopes)]
+    return [x for x in request.app.config if x.auth(request.auth.scopes)]
 
 
 # TODO:
@@ -102,11 +92,11 @@ def core_tile_retrieval(
 ):
     allow_proprietary(request=request)
 
-    tile, pushables = tiles.pull(
+    tile, pushables = request.app.tiles.pull(
         PullableTile(layer_id=layer, x=x, y=y, level=level, grants=request.auth.scopes)
     )
 
-    bt.add_task(tiles.push, pushables)
+    bt.add_task(request.app.tiles.push, pushables)
 
     return tile.data
 
