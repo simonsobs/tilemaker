@@ -154,8 +154,7 @@ class FITSLayerProvider(LayerProvider):
     def calculate_tile_size(self) -> tuple[int, int]:
         # Need to figure out how big the whole 'map' is, i.e. moving it up
         # so that it fills the whole space.
-        with fits.open(self.filename) as h:
-            wcs = WCS(h[self.hdu].header)
+        wcs = self.get_wcs()
 
         scale = wcs.proj_plane_pixel_scales()
         scale_x_deg = scale[0]
@@ -185,6 +184,10 @@ class FITSLayerProvider(LayerProvider):
         tile_size = this_tile_size
 
         return tile_size, number_of_levels
+
+    def get_wcs(self) -> WCS:
+        with fits.open(self.filename) as h:
+            return WCS(h[self.hdu].header)
 
 
 class Layer(AuthenticatedModel):

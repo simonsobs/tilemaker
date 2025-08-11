@@ -3,7 +3,9 @@ Endpoints for maps.
 """
 
 import io
+from typing import Literal
 
+from astropy.io import fits
 from fastapi import (
     APIRouter,
     BackgroundTasks,
@@ -14,6 +16,7 @@ from fastapi import (
 )
 
 from tilemaker.metadata.definitions import MapGroup
+from tilemaker.processing.extractor import extract
 from tilemaker.providers.fits import PullableTile
 
 from ..processing.renderer import Renderer, RenderOptions
@@ -34,52 +37,56 @@ def get_maps(request: Request):
     return [x for x in request.app.config if x.auth(request.auth.scopes)]
 
 
-# TODO:
-# @maps_router.get("/{map}/{band}/submap/{left}/{right}/{top}/{bottom}/image.{ext}")
-# def get_submap(
-#     map: int,
-#     band: int,
-#     left: float,
-#     right: float,
-#     top: float,
-#     bottom: float,
-#     ext: str,
-#     request: Request,
-#     render_options: RenderOptions = Depends(RenderOptions),
-# ):
-#     """
-#     Get a submap of the specified band.
-#     """
+@maps_router.get(
+    "/{layer_id}/submap/{left}/{right}/{top}/{bottom}/image.{ext}",
+    summary="Generate a cut-out of the map.",
+    description="Download and extract (from the base map) a rendered cut-out. Downloads at the full resolution of the underlying map with no additional filter function.",
+)
+def get_submap(
+    layer_id: str,
+    left: float,
+    right: float,
+    top: float,
+    bottom: float,
+    ext: Literal["jpg", "webp", "png", "fits"],
+    request: Request,
+    bt: BackgroundTasks,
+    render_options: RenderOptions = Depends(RenderOptions),
+):
+    """
+    Get a submap of the specified band.
+    """
 
-#     if ext not in ["jpg", "webp", "png", "fits"]:
-#         raise HTTPException(status_code=400, detail="Not an acceptable extension")
+    submap, pushables = extract(
+        layer_id=layer_id,
+        left=left,
+        right=right,
+        top=top,
+        bottom=bottom,
+        tiles=request.app.tiles,
+        grants=request.auth.scopes,
+        metadata=request.app.config,
+    )
 
-#     submap = extract(
-#         band_id=band,
-#         left=left,
-#         right=right,
-#         top=top,
-#         bottom=bottom,
-#         proprietary=allow_proprietary(request=request),
-#     )
+    bt.add_task(request.app.tiles.push, pushables)
 
-#     if ext == "jpg":
-#         with io.BytesIO() as output:
-#             renderer.render(output, submap, render_options=render_options)
-#             return Response(content=output.getvalue(), media_type="image/jpg")
-#     elif ext == "webp":
-#         with io.BytesIO() as output:
-#             renderer.render(output, submap, render_options=render_options)
-#             return Response(content=output.getvalue(), media_type="image/webp")
-#     elif ext == "png":
-#         with io.BytesIO() as output:
-#             renderer.render(output, submap, render_options=render_options)
-#             return Response(content=output.getvalue(), media_type="image/png")
-#     elif ext == "fits":
-#         with io.BytesIO() as output:
-#             hdu = fits.PrimaryHDU(submap)
-#             hdu.writeto(output)
-#             return Response(content=output.getvalue(), media_type="image/fits")
+    if ext == "jpg":
+        with io.BytesIO() as output:
+            renderer.render(output, submap, render_options=render_options)
+            return Response(content=output.getvalue(), media_type="image/jpg")
+    elif ext == "webp":
+        with io.BytesIO() as output:
+            renderer.render(output, submap, render_options=render_options)
+            return Response(content=output.getvalue(), media_type="image/webp")
+    elif ext == "png":
+        with io.BytesIO() as output:
+            renderer.render(output, submap, render_options=render_options)
+            return Response(content=output.getvalue(), media_type="image/png")
+    elif ext == "fits":
+        with io.BytesIO() as output:
+            hdu = fits.PrimaryHDU(submap)
+            hdu.writeto(output)
+            return Response(content=output.getvalue(), media_type="image/fits")
 
 
 def core_tile_retrieval(
