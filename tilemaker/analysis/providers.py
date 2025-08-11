@@ -23,26 +23,26 @@ class InMemoryAnalysisCache(AnalysisProvider):
         cached = self.cache.get(analysis_id, None)
 
         if cached is None:
-            log.debug("inmemory.miss")
+            log.debug("analysis.inmemory.miss")
             raise ProductNotFoundError(f"Product {analysis_id} not found in cache")
 
         if cached.grant and cached.grant not in grants:
             log = log.bind(product_grant=cached.grant, user_grants=grants)
-            log.debug("inmemory.proprietary_hidden")
+            log.debug("analysis.inmemory.proprietary_hidden")
             raise ProductNotFoundError(f"Product {analysis_id} not found in cache")
 
-        log.debug("inmemory.pulled")
+        log.debug("analysis.inmemory.pulled")
         return cached
 
     def push(self, product: AnalysisType):
         log = self.logger.bind(analysis_id=product.hash)
 
         if product.source == self.internal_provider_id:
-            log.debug("inmemory.present")
+            log.debug("analysis.inmemory.present")
 
         product.source = self.internal_provider_id
         self.cache[product.hash] = product
-        log.debug("inmemory.pushed")
+        log.debug("analysis.inmemory.pushed")
 
 
 class MemcachedAnalysisCache(AnalysisProvider):
@@ -64,17 +64,17 @@ class MemcachedAnalysisCache(AnalysisProvider):
         res = self.client.get(analysis_id, None)
 
         if res is None:
-            log.debug("memcached.miss")
+            log.debug("analysis.memcached.miss")
             raise ProductNotFoundError(f"Product {analysis_id} not found in cache")
 
         res = AnalysisType.model_validate_json(res)
 
         if res.grant and res.grant not in grants:
             log = log.bind(product_grant=res.grant, user_grants=grants)
-            log.debug("memcached.proprietary_hidden")
+            log.debug("analysis.memcached.proprietary_hidden")
             raise ProductNotFoundError(f"Product {analysis_id} not found in cache")
 
-        log.debug("memcached.pulled")
+        log.debug("analysis.memcached.pulled")
 
         return res
 
@@ -82,8 +82,8 @@ class MemcachedAnalysisCache(AnalysisProvider):
         log = self.logger.bind(analysis_id=product.hash)
 
         if product.source == self.internal_provider_id:
-            log.debug("memcached.present")
+            log.debug("analysis.memcached.present")
 
         product.source = self.internal_provider_id
         self.client.set(product.hash, product.model_dump_json(), noreply=True)
-        log.debug("memcached.pushed")
+        log.debug("analysis.memcached.pushed")

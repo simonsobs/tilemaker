@@ -43,26 +43,26 @@ class InMemoryCache(TileProvider):
         cached = self.cache.get(tile.hash, None)
 
         if cached is None:
-            log.debug("inmemory.miss")
+            log.debug("provider.inmemory.miss")
             raise TileNotFoundError(f"Tile {tile.hash} not found in cache")
 
         if cached.grant and cached.grant != tile.grant:
             log = log.bind(tile_grant=cached.grant, user_grant=tile.grant)
-            log.debug("inmemory.proprietary_hidden")
+            log.debug("provider.inmemory.proprietary_hidden")
             raise TileNotFoundError(f"Tile {tile.hash} not found in cache")
 
-        log.debug("inmemory.pulled")
+        log.debug("provider.inmemory.pulled")
         return cached
 
     def push(self, tile: PushableTile):
         log = self.logger.bind(tile_hash=tile.hash)
 
         if tile.source == self.internal_provider_id:
-            log.debug("inmemory.present")
+            log.debug("provider.inmemory.present")
 
         tile.source = self.internal_provider_id
         self.cache[tile.hash] = tile
-        log.debug("inmemory.pushed")
+        log.debug("provider.inmemory.pushed")
 
 
 class MemcachedCache(TileProvider):
@@ -82,17 +82,17 @@ class MemcachedCache(TileProvider):
         res = self.client.get(tile.hash, None)
 
         if res is None:
-            log.debug("memcached.miss")
+            log.debug("provider.memcached.miss")
             raise TileNotFoundError(f"Tile {tile.hash} not found in cache")
 
         grant, data = res
 
         if grant and grant != tile.grant:
             log = log.bind(tile_grant=grant, user_grant=tile.grant)
-            log.debug("memcached.proprietary_hidden")
+            log.debug("provider.memcached.proprietary_hidden")
             raise TileNotFoundError(f"Tile {tile.hash} not found in cache")
 
-        log.debug("memcached.pulled")
+        log.debug("provider.memcached.pulled")
 
         return PushableTile(
             band_id=tile.band_id,
@@ -108,8 +108,8 @@ class MemcachedCache(TileProvider):
         log = self.logger.bind(tile_hash=tile.hash)
 
         if tile.source == self.internal_provider_id:
-            log.debug("memcached.present")
+            log.debug("provider.memcached.present")
 
         tile.source = self.internal_provider_id
         self.client.set(tile.hash, (tile.grant, tile.data), noreply=True)
-        log.debug("memcached.pushed")
+        log.debug("provider.memcached.pushed")
