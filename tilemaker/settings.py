@@ -2,6 +2,7 @@
 Settings for the project.
 """
 
+from pathlib import Path
 from typing import Literal
 
 from pydantic_settings import BaseSettings
@@ -10,6 +11,8 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     database_url: str = "sqlite:///./tilemaker.db"
     "SQLAlchemy-appropriate database URL."
+
+    config_path: Path = "sample.json"
 
     origins: list[str] | None = ["*"]
     add_cors: bool = True
@@ -49,23 +52,25 @@ class Settings(BaseSettings):
     "Number of connections in the Memcached client pool."
     memcached_timeout_seconds: float = 0.5
     "Timeout for Memcached operations in seconds."
+    precache: bool = False
+    "Whether or not to pre-cache the histogram for every layer. This will also pre-cache the first layer of tiles."
 
     class Config:
         env_prefix = "TILEMAKER_"
 
-    def create_cache(self):
+    def create_cache(self) -> list:
         """
         Create a cache instance based on the settings.
         """
         if self.cache_type == "in_memory":
-            from tilemaker.server.caching import InMemoryCache
+            from tilemaker.providers.caching import InMemoryCache
 
-            return InMemoryCache()
+            return [InMemoryCache()]
         elif self.cache_type == "memcached":
             from pymemcache import serde
             from pymemcache.client.base import PooledClient
 
-            from tilemaker.server.caching import MemcachedCache
+            from tilemaker.providers.caching import MemcachedCache
 
             client = PooledClient(
                 server=(self.memcached_host, self.memcached_port),
@@ -74,11 +79,14 @@ class Settings(BaseSettings):
                 timeout=self.memcached_timeout_seconds,
                 ignore_exc=True,
             )
-            return MemcachedCache(client=client)
+            return [MemcachedCache(client=client)]
         else:
-            from tilemaker.server.caching import PassThroughCache
+            return []
 
-            return PassThroughCache()
+    def parse_config(self) -> list:
+        from tilemaker.metadata.definitions import parse_config
+
+        return parse_config(self.config_path)
 
 
 settings = Settings()

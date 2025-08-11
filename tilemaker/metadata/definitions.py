@@ -71,6 +71,7 @@ import math
 from pathlib import Path
 from typing import Literal
 
+import structlog
 from astropy import units
 from astropy.io import fits
 from astropy.wcs import WCS
@@ -78,10 +79,16 @@ from pydantic import BaseModel, RootModel
 
 
 def parse_config(config: Path) -> list["MapGroup"]:
+    log = structlog.get_logger()
+    log = log.bind(config_path=str(config))
+
     MapGroupList = RootModel[list[MapGroup]]
 
     with open(config, "r") as handle:
         mgl = MapGroupList.model_validate_json(handle.read()).root
+
+    log = log.bind(number_of_groups=len(mgl))
+    log.info("config.parsed")
 
     return mgl
 
@@ -235,3 +242,12 @@ class MapGroup(AuthenticatedModel):
     description: str
 
     maps: list[Map]
+
+    def get_layer(self, layer_id: str) -> Layer | None:
+        for map in self.maps:
+            for band in map.bands:
+                for layer in band.layers:
+                    if layer.layer_id == layer_id:
+                        return layer
+
+        return None

@@ -41,8 +41,6 @@ def map_group_from_fits(
             )
         )
 
-    print(maps)
-
     return MapGroup(
         name="Auto-Populated", description="No description provided", maps=maps
     )
@@ -54,7 +52,7 @@ def layers_from_fits(
     unit_override: str | None = None,
 ) -> list[Layer]:
     log = structlog.get_logger()
-    log = log.bind(filename=filename)
+    log = log.bind(filename=str(filename))
     data = fits.open(filename)
 
     if force:

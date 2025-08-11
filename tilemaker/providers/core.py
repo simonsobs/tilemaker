@@ -20,7 +20,7 @@ class PullableTile(BaseModel):
     x: int
     y: int
     level: int
-    grants: set[str]
+    grants: set[str] | None
 
     @property
     def hash(self) -> str:
