@@ -5,6 +5,7 @@ Settings for the project.
 from pathlib import Path
 from typing import Literal
 
+from fastapi import FastAPI
 from pydantic_settings import BaseSettings
 
 
@@ -23,9 +24,6 @@ class Settings(BaseSettings):
 
     api_endpoint: str = "./"
     "The location of the API endpoint. Default assumes from the same place as the server."
-
-    use_in_memory_cache: bool = True
-    "Use an in-memory cache for the tiles. Can improve performance by reducing database queries."
 
     proprietary_scope: str = "simonsobs"
     "The scope to require for proprietary data access."
@@ -82,6 +80,63 @@ class Settings(BaseSettings):
             return [MemcachedCache(client=client)]
         else:
             return []
+
+    def create_analysis_cache(self) -> list:
+        """
+        Create a cache instance based on the settings.
+        """
+        if self.cache_type == "in_memory":
+            from tilemaker.analysis.providers import InMemoryAnalysisCache
+
+            return [InMemoryAnalysisCache()]
+        elif self.cache_type == "memcached":
+            from pymemcache import serde
+            from pymemcache.client.base import PooledClient
+
+            from tilemaker.analysis.providers import MemcachedAnalysisCache
+
+            client = PooledClient(
+                server=(self.memcached_host, self.memcached_port),
+                serde=serde.pickle_serde,
+                max_pool_size=self.memcached_client_pool_size,
+                timeout=self.memcached_timeout_seconds,
+                ignore_exc=True,
+            )
+            return [MemcachedAnalysisCache(client=client)]
+        else:
+            return []
+
+    def setup_app(self, app: FastAPI):
+        from tilemaker.analysis.core import Analyses
+        from tilemaker.providers.core import Tiles
+        from tilemaker.providers.fits import FITSTileProvider
+
+        if not hasattr(app, "config"):
+            app.config = settings.parse_config()
+
+        cache = self.create_cache()
+
+        tp = FITSTileProvider(map_groups=app.config)
+        app.tiles = Tiles(pullable=cache + [tp], pushable=cache)
+
+        cache = self.create_analysis_cache()
+        app.analyses = Analyses(
+            pullable=cache, pushable=cache, tiles=app.tiles, metadata=app.config
+        )
+
+        if self.precache:
+            for group in app.config:
+                for map in group.maps:
+                    for band in map.bands:
+                        for layer in band.layers:
+                            app.analyses.pull(
+                                f"hist-{layer.layer_id}",
+                                grants=set(layer.layer_id)
+                                if layer.layer_id is not None
+                                else None,
+                            )
+
+        return app
 
     def parse_config(self) -> list:
         from tilemaker.metadata.definitions import parse_config

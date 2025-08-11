@@ -22,35 +22,7 @@ async def lifespan(app: FastAPI):
     Lifespan event handler for the FastAPI app.
     """
 
-    from tilemaker.analysis.core import Analyses
-    from tilemaker.analysis.providers import InMemoryAnalysisCache
-    from tilemaker.providers.core import Tiles
-    from tilemaker.providers.fits import FITSTileProvider
-
-    if not hasattr(app, "config"):
-        app.config = settings.parse_config()
-
-    cache = settings.create_cache()
-
-    tp = FITSTileProvider(map_groups=app.config)
-    app.tiles = Tiles(pullable=cache + [tp], pushable=cache)
-
-    ap = InMemoryAnalysisCache()
-    app.analyses = Analyses(
-        pullable=[ap], pushable=[ap], tiles=app.tiles, metadata=app.config
-    )
-
-    if settings.precache:
-        for group in app.config:
-            for map in group.maps:
-                for band in map.bands:
-                    for layer in band.layers:
-                        app.analyses.pull(
-                            f"hist-{layer.layer_id}",
-                            grants=set(layer.layer_id)
-                            if layer.layer_id is not None
-                            else None,
-                        )
+    settings.setup_app(app=app)
 
     yield
 
