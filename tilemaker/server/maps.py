@@ -34,7 +34,7 @@ maps_router = APIRouter(prefix="/maps", tags=["Maps and Tiles"])
     description="Retrieve a list of MapGroup shaped objects, each containing a list of Maps, with a list of Bands, and finally a list of Layers.",
 )
 def get_maps(request: Request):
-    return [x for x in request.app.config if x.auth(request.auth.scopes)]
+    return [x for x in request.app.config.map_groups if x.auth(request.auth.scopes)]
 
 
 @maps_router.get(
@@ -52,6 +52,7 @@ def get_submap(
     request: Request,
     bt: BackgroundTasks,
     render_options: RenderOptions = Depends(RenderOptions),
+    show_grid: bool = False,
 ):
     """
     Get a submap of the specified band.
@@ -66,6 +67,7 @@ def get_submap(
         tiles=request.app.tiles,
         grants=request.auth.scopes,
         metadata=request.app.config,
+        show_grid=show_grid,
     )
 
     bt.add_task(request.app.tiles.push, pushables)

@@ -12,7 +12,15 @@ from astropy import units
 from astropy.io import fits
 from pydantic import BaseModel
 
+from tilemaker.metadata.core import DataConfiguration
 from tilemaker.metadata.definitions import Band, FITSLayerProvider, Layer, Map, MapGroup
+
+
+def generate(filenames: list[Path]):
+    map_files = [x for x in filenames if "fits" in x.name]
+    map_group = map_group_from_fits(map_files)
+
+    return DataConfiguration(map_groups=[map_group], boxes=[], source_groups=[])
 
 
 def filename_to_id(filename: str | Path) -> str:

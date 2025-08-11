@@ -2,6 +2,8 @@ from abc import ABC, abstractmethod
 
 from pydantic import BaseModel
 
+from tilemaker.metadata.core import DataConfiguration
+
 
 class AnalysisProduct(BaseModel, ABC):
     layer_id: str
@@ -15,5 +17,5 @@ class AnalysisProduct(BaseModel, ABC):
 
     @classmethod
     @abstractmethod
-    def build(cls, tiles: "Tiles", metadata: list["MapGroup"], layer_id: str):
+    def build(cls, tiles: "Tiles", metadata: DataConfiguration, layer_id: str):
         return

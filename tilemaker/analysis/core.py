@@ -8,7 +8,7 @@ from abc import ABC, abstractmethod
 import structlog
 from structlog.types import FilteringBoundLogger
 
-from tilemaker.metadata.definitions import MapGroup
+from tilemaker.metadata.core import DataConfiguration
 from tilemaker.providers.core import Tiles
 
 from .types import SLUG_TO_TYPE
@@ -39,14 +39,14 @@ class Analyses:
     pullable: list[AnalysisProvider]
     pushable: list[AnalysisProvider]
     tiles: Tiles
-    metadata: list[MapGroup]
+    metadata: DataConfiguration
 
     def __init__(
         self,
         pullable: list[AnalysisProvider],
         pushable: list[AnalysisProvider],
         tiles: Tiles,
-        metadata: list[MapGroup],
+        metadata: DataConfiguration,
     ):
         self.pullable = pullable
         self.pushable = pushable

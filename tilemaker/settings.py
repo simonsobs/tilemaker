@@ -116,7 +116,7 @@ class Settings(BaseSettings):
 
         cache = self.create_cache()
 
-        tp = FITSTileProvider(map_groups=app.config)
+        tp = FITSTileProvider(map_groups=app.config.map_groups)
         app.tiles = Tiles(pullable=cache + [tp], pushable=cache)
 
         cache = self.create_analysis_cache()
@@ -125,20 +125,15 @@ class Settings(BaseSettings):
         )
 
         if self.precache:
-            for group in app.config:
-                for map in group.maps:
-                    for band in map.bands:
-                        for layer in band.layers:
-                            app.analyses.pull(
-                                f"hist-{layer.layer_id}",
-                                grants=set(layer.layer_id)
-                                if layer.layer_id is not None
-                                else None,
-                            )
+            for layer in app.config.layers:
+                app.analyses.pull(
+                    f"hist-{layer.layer_id}",
+                    grants=set(layer.layer_id) if layer.layer_id is not None else None,
+                )
 
         return app
 
-    def parse_config(self) -> list:
+    def parse_config(self):
         from tilemaker.metadata.definitions import parse_config
 
         return parse_config(self.config_path)

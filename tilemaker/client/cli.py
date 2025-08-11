@@ -232,10 +232,10 @@ def open(filenames: list[Path], host: str = "127.0.0.1", port: int = 8000):
     """
     from uvicorn import run
 
-    from tilemaker.metadata.generation import map_group_from_fits
+    from tilemaker.metadata.generation import generate
     from tilemaker.server import app
 
-    app.config = [map_group_from_fits(filenames)]
+    app.config = generate(filenames)
 
     run(app, host=host, port=port)
 

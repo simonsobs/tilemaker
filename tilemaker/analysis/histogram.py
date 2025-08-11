@@ -7,7 +7,7 @@ from time import perf_counter
 import numpy as np
 import structlog
 
-from tilemaker.metadata.definitions import MapGroup
+from tilemaker.metadata.core import DataConfiguration
 from tilemaker.providers.core import PullableTile, TileNotFoundError, Tiles
 
 from .products import AnalysisProduct
@@ -25,7 +25,7 @@ class HistogramProduct(AnalysisProduct):
 
     @classmethod
     def build(
-        cls, tiles: Tiles, metadata: list[MapGroup], analysis_id: str
+        cls, tiles: Tiles, metadata: DataConfiguration, analysis_id: str
     ) -> "HistogramProduct":
         log = structlog.get_logger()
 
@@ -33,10 +33,7 @@ class HistogramProduct(AnalysisProduct):
 
         log = log.bind(layer_id=layer_id)
 
-        for map_group in metadata:
-            layer = map_group.get_layer(layer_id)
-            if layer is not None:
-                break
+        layer = metadata.layer(layer_id=layer_id)
 
         if layer is None:
             log.info("histogram.layer_not_found")
