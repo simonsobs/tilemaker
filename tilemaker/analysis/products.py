@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 from pydantic import BaseModel
 
 from tilemaker.metadata.core import DataConfiguration
+from tilemaker.providers.core import Tiles
 
 
 class AnalysisProduct(BaseModel, ABC):

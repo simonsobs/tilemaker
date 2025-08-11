@@ -8,6 +8,7 @@ from abc import ABC, abstractmethod
 import structlog
 from structlog.types import FilteringBoundLogger
 
+from tilemaker.analysis.products import AnalysisProduct
 from tilemaker.metadata.core import DataConfiguration
 from tilemaker.providers.core import Tiles
 
