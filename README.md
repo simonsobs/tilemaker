@@ -1,11 +1,28 @@
 TileMaker
 =========
 
-A very simple tile server, backed by a SQL database, for astronomical maps.
+TileMaker, along with its frontend, TileViewer, is a tool for visualizing
+and analyzing astronomical maps with an equirectangular projection, like those
+used by the Atacama Cosmology Telescope and Simons Observatory.
 
-The package includes command-line tools to create databases out
-of astronomical maps, and they can be served using the included FastAPI
-server.
+TileMaker uses the HTTP protocol to serve your tiles over a network connection,
+meaning that the server running the analysis can be in a completely different
+place than where you're viewing them. This helps when you have maps stored
+on a remote machine (e.g. a HPC facility) but want to view them on your
+laptop, no large file transfer necessary!
+
+TileMaker can be used in a number of modes:
+
++ Locally to visualize and organize a colleciton of maps.
++ Remotely over an SSH connection to view maps on an external machine.
++ In 'production' mode, served from a docker container (see e.g. 
+  [the Simons Observatory main viewer](https://maps.simonsobservatory.org))
+
+TileMaker excels over its competition by not requiring any pre-ingestion
+process and by not creating any ancillary files. To reduce load on
+filesystems, we support local in-memory caches (primarily for use in
+the 'investigative' local and remote modes) as well as `memcached`
+for production modes where multithreaded ASGI servers are recommended.
 
 Installation and Usage
 ----------------------
@@ -26,117 +43,99 @@ OR if you don't ever want to install anything, just:
 uv run --python=3.12 --with tilemaker tilemaker $OPTIONS
 ```
 
-All user-driven usage of `tilemaker` is performed using the `tilemaker`
-command line utility. More information is available using `tilemaker --help`.
-
-You can run a test server that produces a simple example map by:
-
-* Either set the environment variable `TILEMAKER_SERVE_FRONTEND=no` to serve
-  only the API or run the `build.sh` script to build the frontend.
-* Start the development server with:
-  ```
-  tilemaker dev
-  ```
-* Open your browser to `http://127.0.0.1:8000/maps/1` if you are just testing
-  the API or `http://127.0.0.1:8000` if you want to see the frontend.
-
-Ingesting Data
---------------
-
-Currently, we support TWO major types of data ingest.
-
-### IQU Maps
-
-IQU maps in the CAR representation can be ingested using 
-
-```
-tilemaker add iqu $FILENAME $NAME
-```
-
-There are lots more options that can be seen with `tilemaker add iqu --help`. For example:
-
-```
-tilemaker add iqu my_file.fits "An Example Map" --intensity-only
-```
-
-To ingest only the `I` component of the map. Note that the default units are in `uK`, so if your
-map has un-declared (in the FITS header) kelvin units, you will need to add `--units=K`.
-
-### Catalog Ingest
-
-Catalogs in two major formats can be ingested. CSV and JSON, using
-
-```
-tilemaker add catalog $FILENAME $NAME $DESCRIPTION
-```
-
-for example
-
-```
-tilemaker add catalog example.json "Example Catalog" "Description of my example catalog"
-```
-
-#### CSV Layout
-
-CSV files must be in the following format and have extension `.csv`:
-
-```
-# FLUX, RA, DEC
-0.9222,36.03,-18.32
-0.2222,34.22,19.22
-0.9522,26.03,-18.32
-0.2522,24.22,19.22
-```
-
-#### JSON Layout
-
-JSON files must be in the following format and have extension `.json`:
-
-```
-[
-  {
-    "ra": 90.222,
-    "dec": -12.34,
-    "flux": 12.3,
-    "name": "Favourite"
-  },
-  {
-    "ra": 22.222,
-    "dec": -19.34,
-    "flux": 11.3
-  }
-]
-```
-
-
-Viewing Maps
+Simple Usage
 ------------
 
-The pypi and docker images come pre-built with the frontend. You can run the server with
+To start using tilemaker with your equirectangular maps, you can simply run:
 
 ```
-tilemaker serve --port=8080
+tilemaker open *.fits
 ```
 
-where the port parameter is optional.
+This will open all of the fits files in your current working directory. If you
+want to improve first-run performance, you can set the environment variable
+`TILEMAKER_PRECACHE="yes"`, which will give you a longer startup time but
+will avoid any potential slowdown when paging through maps in the viewer.
+
+The server will print some things to the terminal as it performs its internal
+startup process. It is ready when you recieve the lines:
+
+```
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+```
+
+To view your maps, all you need to do is to go to
+[http://localhost:8000](http://localhost:8000) in a web browser.
 
 
-Settings
---------
+Remote Usage
+------------
 
-Settings are configured using a Pydantic settings model, and are defined
-using configuration variables:
+Remote usage is very similar to the 'Simple Usage' case outlined above, but you
+will need to consider two things. First, if you are using a shared machine, the
+port 8000 may already be in use by others. By using
+`tilemaker open *.fits --port=$SOME_NUMBER`, you can choose the port that is used.
 
-- `$TILEMAKER_DATABASE_URL`, the databse URL for SQLAlchemy.
-   Defaults to `sqlite:///./tilemaker.db`,
-- `$TILEMAKER_ORIGINS`, the list of potential origins for the
-  data source. For example, `\[\"http://localhost\"\,\ \"http://localhost:1234\"\]`
-  may be useful to export this to.
-- `$TILEMAKER_ADD_CORS`, whether or not to add cross-origin support.
-- `$TILEMAKER_API_ENDPOINT`, the endpoint to serve the API from. defaults to
-  `./`.
-- `$TILEMAKER_SERVE_FRONTEND`, a boolean telling you whether or not to serve
-  the frontend. If you are using a pre-packaged setup, you should leave this alone.
+Second, if you are connected to the machine over SSH, you should use port
+forwarding. That can be accomplished through the `-L` option on most SSH
+clients.
 
-To set up a simple server, no configuration options are required. 
+For example, let's say I run my server on port 9182:
+
+```
+ssh -L localhost:9182:localhost:9182 my.domain.com
+...
+tilemaker open *.fits --port=9182
+```
+
+Then, you can go to [http://localhost:9182](http://localhost:9182) on the
+machine you are using to connect to the remote and render the viewer there.
+
+
+Production Usage
+----------------
+
+When running TileMaker in 'production', which we very loosely define as a
+server running at a fixed place on the open internet, we strongly recommend
+using a docker container. We provide such a container on DockerHub
+at [simonsobs/tilemaker](https://hub.docker.com/r/simonsobs/tilemaker).
+
+There are a number of other considerations here.
+
+1. You will need to use the configuration file (described below) rather
+   than the 'open all the fits files' method described above.
+2. It's recommended that you run the server using more than one thread.
+   By default the docker container runs with eight threads.
+3. You may wish to use `memcached` as a caching service rather than
+   the default thread-local cache. This allows all of your threads to
+   share the same tile and analysis cache.
+4. If you want to protect some of your maps away from prying eyes, you can
+   use [SOAuth](https://github.com/simonsobs/soauth), which is the
+   Simons Observatory shared authentication framework. This provides each user
+   with a number of 'grants' that define their ability to view various pieces
+   of data, and is backed by a GitHub login.
+5. We generally recommend running tilemaker behind an `nginx` or other reverse
+   proxy that supports HTTP/2. This is generally already the case if you are
+   using a hosted kubernetes service with e.g. ingress support. HTTP/2 allows
+   browsers to make many parallel requests for tiles from the server, whereas
+   by default (HTTP/1.1) you can only make six at a time!
+
+Configuring TileMaker
+---------------------
+
+### Environment Variables
+
+#### Configuring Memcached
+
+#### Configuring SOAuth
+
+#### Guinicorn Specification
+
+
+### Tile Specification
+
+### Source Specification
+
+### Highlight Boxes
 
