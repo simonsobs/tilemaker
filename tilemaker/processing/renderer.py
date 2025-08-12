@@ -13,17 +13,19 @@ from pydantic import BaseModel, Field
 
 class RenderOptions(BaseModel):
     cmap: str = Field(default="viridis")
-    "Color map to use for rendering, defaults to 'viridis', and may not be used if RGBA buffers are provided."
+    "Color map to use for rendering, defaults to 'viridis', and may not be used if RGBA buffers are provided"
     vmin: float = Field(default=-100)
     "Color map range minimum, defaults to -100"
     vmax: float = Field(default=100)
     "Color map range maximum, defaults to 100"
     log_norm: bool = Field(default=False)
-    "Whether to use a log normalization, defaults to False."
+    "Whether to use a log normalization, defaults to False"
+    abs: bool = Field(default=False)
+    "Whether to take the absolute value of the data before rendering it"
     clip: bool = Field(default=False)
-    "Whether to clip values outside of the range, defaults to True."
+    "Whether to clip values outside of the range, defaults to True"
     flip: bool = Field(default=False)
-    "Whether to render the entire field using 360 -> RA convention (true) or -180 < RA < 180 (false)."
+    "Whether to render the entire field using 360 -> RA convention (true) or -180 < RA < 180 (false)"
 
     @property
     def norm(self) -> plt.Normalize:
@@ -76,6 +78,9 @@ class Renderer:
         if render_options.flip:
             # Flip the buffer horizontally if requested.
             buffer = np.fliplr(buffer)
+
+        if render_options.abs:
+            buffer = np.abs(buffer)
 
         if buffer.ndim == 2:
             # Render with colour mapping, this is 'raw data'.
