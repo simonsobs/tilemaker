@@ -208,7 +208,17 @@ significantly more description available on them from the SOAuth documentation.
 
 #### Guinicorn Specification
 
-The docker container that we provide
+The docker container that we provide runs `gunicorn` with 8 worker threads by
+default with the following configuration:
+
+```
+gunicorn -k uvicorn.workers.UvicornWorker \
+         -w 8 \
+         tilemaker.server:app \
+         --bind 0.0.0.0:8000
+```
+
+You can modify this with your launch command to modify the number of workers.
 
 Data Configuration
 ------------------
