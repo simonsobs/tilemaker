@@ -54,8 +54,9 @@ tilemaker open *.fits
 
 This will open all of the fits files in your current working directory. If you
 want to improve first-run performance, you can set the environment variable
-`TILEMAKER_PRECACHE="yes"`, which will give you a longer startup time but
-will avoid any potential slowdown when paging through maps in the viewer.
+`TILEMAKER_PRECACHE=yes` (the default, to turn off set `no`), which will give
+you a longer startup time but will avoid any potential slowdown when paging
+through maps in the viewer.
 
 The server will print some things to the terminal as it performs its internal
 startup process. It is ready when you recieve the lines:
@@ -91,7 +92,12 @@ tilemaker open *.fits --port=9182
 
 Then, you can go to [http://localhost:9182](http://localhost:9182) on the
 machine you are using to connect to the remote and render the viewer there.
+It's important to ensure that your map has the correct `BUNIT` value in the
+header. We attempt to 'guess' what the units should be for various maps,
+but telling the difference between e.g. `uK` and `K` maps is nontrivial.
 
+A good example map to start with is one of the
+[ACT DR6.02 Coadd maps](https://lambda.gsfc.nasa.gov/product/act/act_dr6.02/act_dr6.02_maps_coadd_get.html).
 
 Production Usage
 ----------------
@@ -126,12 +132,86 @@ Configuring TileMaker
 
 ### Environment Variables
 
+There are a number of environment variables that are used to configure the
+TileMaker server. We set these to reasonable defaults, but you might want
+to change them (and should if you are running in production mode)! They
+all should be prepended by `TILEMAKER_`.
+
+- `CONFIG_PATH`: the path to your data configuration file. By default this is
+  `sample.json`
+- `ORIGINS` and `ADD_CORS`: whether to allow CORS. By default we do, and you
+   will need to if you are behind a reverse proxy.
+- `SERVE_FRONTEND`: Whether to serve the frontend from `/`, otherwise we just
+   serve the API. By default this is `yes`.
+- `API_ENDPOINT`: The root endpoint the API is served from, by default `/`.
+- `AUTH_TYPE`: Either `mock` (no authentication), or `soauth` if you are using
+  SOAuth integration (see below for additional details).
+- `CACHE_TYPE`: one of `in_memory` (default) or `memcached` (see below for
+  the details of configuring memcached).
+- `PRECACHE`: whether or not to precache the histograms and top-level tiles.
+  By default `yes`.
+
+
 #### Configuring Memcached
+
+Memcached should be set up as a server on the same local network as your
+TileMaker instance. You should not use a remote memcached service for tilemaker
+as the latency will be too high.
+
+You will need to increase the maximum individual item cache size depending
+on your tile size. Note that we usually store tiles as 32 bit floats, so
+e.g. if you have a 675 x 675 tile size (common with ACT and SO maps), each
+tile represents ~2 MB of data. To be safe, we recommend increasing the cache
+size to 16 MB: `-l 16m`.
+
+The size of the cache should be approximately the same size as your on-disk
+maps if at all possible. For production instances, we typically use a 32 or 64
+GB cache size when serving a few hundred maps and this works well (`-m 32768`).
+So your full memcached command should be:
+
+```
+memcached -m 32768 -l 16m
+```
+
+You can configure memcached using the following environment variables (remember
+to prefx with `TILEMAKER_`):
+
+- `MEMCACHED_HOST`: the hostname of the memcached service (default `localhost`)
+- `MEMCACHED_PORT`: 11211.
+- `MEMCACHED_CLIENT_POOL_SIZE`: the number of clients in the memcached pool.
+  Defaults to 4. Note that these clients are threadlocal.
+- `MEMCACHED_TIMEOUT_SECONDS`: 0.5, the default timeout for memcached operations.
+  Because of the relatively large cache size, this needs to be increased from the
+  very small default in `pymemcache`.
+
+We run in production with the default settings, aside from changing the host
+specification.
 
 #### Configuring SOAuth
 
+[SOAuth](https://github.com/simonsobs/soauth) is the shared identity and
+authentication framework for Simons Observatory services. It is a decentralized
+system, with the main identity server providing encrypted tokens that are
+then decrypted by the services themselves (like TileMaker). As such,
+you will need to configure (prefixed with `TILEMAKER_`):
+
+- `SOAUTH_BASE_URL`: The base URL of your application.
+- `SOAUTH_AUTH_URL`: The URL of your authentication service (i.e. where SOAuth
+   runs)
+- `SOAUTH_APP_ID`: The APP ID of your SOAuth app.
+- `SOAUTH_CLIENT_SECRET`: The client secret from SOAuth.
+- `SOAUTH_PUBLIC_KEY`: The public key from SOAuth.
+- `SOAUTH_KEY_PAIR_TYPE`: The key pair type provided by SOAuth.
+
+These are all standard configuration variables for SOAuth, and there is
+significantly more description available on them from the SOAuth documentation.
+
 #### Guinicorn Specification
 
+The docker container that we provide
+
+Data Configuration
+------------------
 
 ### Tile Specification
 
@@ -139,3 +219,26 @@ Configuring TileMaker
 
 ### Highlight Boxes
 
+
+Map Viewer
+----------
+
+### Overview
+
+### The Histogram
+
+### Layer Switching
+
+### Searching and Moving
+
+### Sources
+
+### Boxes
+
+
+Underlying API
+--------------
+
+The TileMaker service hosts a readonly HTTP API that is used to power the frontend.
+You can view the documentation for that API through the auto-generated API
+docs avaialable at `/docs`.
