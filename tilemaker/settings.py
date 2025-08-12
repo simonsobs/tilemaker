@@ -10,10 +10,7 @@ from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    database_url: str = "sqlite:///./tilemaker.db"
-    "SQLAlchemy-appropriate database URL."
-
-    config_path: Path = "sample.json"
+    config_path: Path = "config.json"
 
     origins: list[str] | None = ["*"]
     add_cors: bool = True
@@ -24,9 +21,6 @@ class Settings(BaseSettings):
 
     api_endpoint: str = "./"
     "The location of the API endpoint. Default assumes from the same place as the server."
-
-    proprietary_scope: str = "simonsobs"
-    "The scope to require for proprietary data access."
 
     auth_type: Literal["soauth", "mock"] = "mock"
     "The authentication type to use."
@@ -46,11 +40,11 @@ class Settings(BaseSettings):
     "Host for the Memcached server."
     memcached_port: int = 11211
     "Port for the Memcached server."
-    memcached_client_pool_size: int = 16
+    memcached_client_pool_size: int = 4
     "Number of connections in the Memcached client pool."
     memcached_timeout_seconds: float = 0.5
     "Timeout for Memcached operations in seconds."
-    precache: bool = False
+    precache: bool = True
     "Whether or not to pre-cache the histogram for every layer. This will also pre-cache the first layer of tiles."
 
     class Config:
