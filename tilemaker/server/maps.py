@@ -20,7 +20,6 @@ from tilemaker.processing.extractor import extract
 from tilemaker.providers.fits import PullableTile
 
 from ..processing.renderer import Renderer, RenderOptions
-from .auth import allow_proprietary
 
 renderer = Renderer(format="webp")
 
@@ -99,8 +98,6 @@ def core_tile_retrieval(
     bt: BackgroundTasks,
     request: Request,
 ):
-    allow_proprietary(request=request)
-
     tile, pushables = request.app.tiles.pull(
         PullableTile(layer_id=layer, x=x, y=y, level=level, grants=request.auth.scopes)
     )

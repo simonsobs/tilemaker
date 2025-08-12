@@ -36,7 +36,8 @@ class SourceGroupStub(BaseModel):
 class SourceGroup(SourceGroupStub):
     sources: list[Source] | None = None
     grant: str | None = None
-    provider: SourceProvider
+    provider: SourceProvider | None = None
 
     def model_post_init(self, _):
-        self.sources = self.provider.realize_sources()
+        if self.provider is not None:
+            self.sources = self.provider.realize_sources()
