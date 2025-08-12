@@ -1,6 +1,6 @@
 """
-Run a simple development server, and also creates a new database file
-(temporary) that contains a sample map.
+Run a simple development server, and also creates a
+(temporary) file that contains a sample map.
 """
 
 
