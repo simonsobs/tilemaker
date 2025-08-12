@@ -223,12 +223,236 @@ You can modify this with your launch command to modify the number of workers.
 Data Configuration
 ------------------
 
+If you want to have more fine control over your data, and potentially include
+sources and highlight regions, you will need to create a configuration file.
+This configuration file is a JSON file, and has three main sections outlined
+below.
+
 ### Tile Specification
+
+Tiles are specified as part of 'Map Groups'. There is a specific hierarchy
+here that allows you to assign multiple maps together. This hierarchy
+is as follows:
+
+- Map Group (a collection of maps, e.g. the ACT DR6.02 Release)
+- Map (a 'type' of map, e.g. a specific map type in ACT DR6.02 like ACTxPlanck DayNight)
+- Band (e.g. frequency band, e.g. f090)
+- Layer (an individual 2D FITS array, e.g. I, Q, or U).
+
+An example map group:
+
+```json
+{
+  "map_groups": [
+    {
+      "name": "ACT DR6.02",
+      "description": "Maps from DR6.02 from the Atacama Cosmology Telescope",
+      "maps": [
+        {
+          "map_id": "1",
+          "name": "ACT DR4-DR6 x Planck",
+          "description": "All ACT data cross-correlated with Planck.",
+          "bands": [
+            {
+              "band_id": "1",
+              "name": "f090",
+              "description": "Frequency band f090",
+              "layers": [
+                {
+                  "layer_id": "f090I",
+                  "name": "I",
+                  "description": "Intensity map",
+                  "provider": {
+                    "provider_type": "fits",
+                    "filename": "act-planck_dr4dr6_coadd_AA_daynight_f090_map.fits",
+                    "index": 0
+                  },
+                  "quantity": "T (I)",
+                  "units": "uK",
+                  "vmin": -500,
+                  "vmax": 500,
+                  "cmap": "RdBu_r"
+                },
+                {
+                  "layer_id": "f090Q",
+                  "name": "Q",
+                  "description": "Q-polarization map",
+                  "provider": {
+                    "provider_type": "fits",
+                    "filename": "act-planck_dr4dr6_coadd_AA_daynight_f090_map.fits",
+                    "index": 1
+                  },
+                  "quantity": "T (Q)",
+                  "units": "uK",
+                  "vmin": -50,
+                  "vmax": 50,
+                  "cmap": "RdBu_r"
+                },
+                {
+                  "layer_id": "f090U",
+                  "name": "U",
+                  "description": "U-polarization map",
+                  "provider": {
+                    "provider_type": "fits",
+                    "filename": "act-planck_dr4dr6_coadd_AA_daynight_f090_map.fits",
+                    "index": 2
+                  },
+                  "quantity": "T (U)",
+                  "units": "uK",
+                  "vmin": -50,
+                  "vmax": 50,
+                  "cmap": "RdBu_r"
+                }
+              ]
+            },
+            {
+              "band_id": "2",
+              "name": "f150",
+              "description": "Frequency band f150",
+              "layers": [
+                {
+                  "layer_id": "f150I",
+                  "name": "I",
+                  "description": "Intensity map",
+                  "provider": {
+                    "provider_type": "fits",
+                    "filename": "act-planck_dr4dr6_coadd_AA_daynight_f150_map.fits",
+                    "index": 0
+                  },
+                  "quantity": "T (I)",
+                  "units": "uK",
+                  "vmin": -500,
+                  "vmax": 500,
+                  "cmap": "RdBu_r"
+                },
+                {
+                  "layer_id": "f150Q",
+                  "name": "Q",
+                  "description": "Q-polarization map",
+                  "provider": {
+                    "provider_type": "fits",
+                    "filename": "act-planck_dr4dr6_coadd_AA_daynight_f150_map.fits",
+                    "index": 1
+                  },
+                  "quantity": "T (Q)",
+                  "units": "uK",
+                  "vmin": -50,
+                  "vmax": 50,
+                  "cmap": "RdBu_r"
+                },
+                {
+                  "layer_id": "f150U",
+                  "name": "U",
+                  "description": "U-polarization map",
+                  "provider": {
+                    "provider_type": "fits",
+                    "filename": "act-planck_dr4dr6_coadd_AA_daynight_f150_map.fits",
+                    "index": 2
+                  },
+                  "quantity": "T (U)",
+                  "units": "uK",
+                  "vmin": -50,
+                  "vmax": 50,
+                  "cmap": "RdBu_r"
+                },
+                {
+                  "layer_id": "f150Iivar",
+                  "name": "I (ivar)",
+                  "description": "Intensity inverse-variance map",
+                  "provider": {
+                    "provider_type": "fits",
+                    "filename": "act-planck_dr4dr6_coadd_AA_daynight_f150_ivar.fits",
+                    "index": 0
+                  },
+                  "quantity": "IVar",
+                  "grant": "ivaraccess",
+                  "units": "uK^-2",
+                  "vmin": 100000,
+                  "vmax": 10000000000,
+                  "cmap": "viridis"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
+```
+
+Here we use three files that contain I, Q, U maps and specify their color map ranges
+and color maps. We also assign another band from the inverse variance map for the
+`f150` frequency band.
+
+You can restrict access at any level with the optional `grant` keyword. Users
+without this specific grant will not be able to access it (e.g.
+`"grant":"ivaraccess"` in the above).
 
 ### Source Specification
 
+Sources are specified as part of 'Source Groups' which are effectively individual
+catalogs, and are provided by catalogs in a JSON format.
+
+```json
+"source_groups": [
+    {
+      "name": "Example",
+      "description": "An example catalogue",
+      "provider": {
+        "file_type": "json",
+        "filename": "example/example_cat.json"
+      }
+    }
+  ]
+```
+
+#### Source Catalog Format
+
+For each source, you should provide the RA, Dec, and name. You can add an additional dictionary
+called 'extra' that will be rendered in the UI. For example:
+
+```json
+[
+  {
+    "ra": 90.222,
+    "dec": -12.34,
+    "name": "Favourite",
+    "extra": {
+      "flux": 9.23,
+      "snr": 1.2
+    }
+  },
+  {
+    "ra": 22.222,
+    "dec": -19.34,
+    "name": "The worst",
+    "extra": {
+      "flux": 9.23,
+      "snr": 1.2
+    }
+  }
+]
+```
+
 ### Highlight Boxes
 
+Highlight boxes are areas of the UI that are downloadable. Users can define their own highlight
+boxes using tools in the interface, but sometimes it's helpful to have pre-defined ones that
+e.g. show a specific survey patch.
+
+```json
+"boxes": [
+   {
+   "name": "BOSS-N",
+   "description": "Example box, for the BOSS-N region.",
+   "top_left_ra": -200.0,
+   "top_left_dec": 20.0,
+   "bottom_right_ra": -120.0,
+   "bottom_right_dec": 0.0
+   }
+]
+```
 
 Map Viewer
 ----------
