@@ -1,13 +1,42 @@
-from typing import Any
+from pathlib import Path
+from typing import Any, Literal
 
-from pydantic import BaseModel
+import numpy as np
+from pydantic import BaseModel, TypeAdapter
 
 
 class Source(BaseModel):
-    extra: dict[str, Any]
-
-
-class SourceGroup(BaseModel):
+    name: str | None = None
     ra: float
     dec: float
-    sources: list[Source]
+    extra: dict[str, Any] | None
+
+
+class SourceProvider(BaseModel):
+    file_type: Literal["csv", "json"]
+    filename: Path
+
+    def realize_sources(self) -> list[Source]:
+        if self.file_type == "json":
+            with open(self.filename, "r") as f:
+                return TypeAdapter(list[Source]).validate_json(f.read())
+        elif self.file_type == "csv":
+            # Extra not supported
+            data = np.loadtxt(self.filename, delimiter=",", skiprows=1)
+
+            return [Source(name=x[0], ra=x[1], dec=x[2], extra=None) for x in data]
+
+
+class SourceGroupStub(BaseModel):
+    source_group_id: str
+    name: str
+    description: str | None = None
+
+
+class SourceGroup(SourceGroupStub):
+    sources: list[Source] | None = None
+    grant: str | None = None
+    provider: SourceProvider
+
+    def model_post_init(self, _):
+        self.sources = self.provider.realize_sources()

@@ -134,7 +134,7 @@ class Settings(BaseSettings):
         return app
 
     def parse_config(self):
-        from tilemaker.metadata.definitions import parse_config
+        from tilemaker.metadata.core import parse_config
 
         return parse_config(self.config_path)
 

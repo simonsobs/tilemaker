@@ -36,6 +36,11 @@ tags_metadata = [
         "name": "Histograms",
         "description": "Operations for getting details about histograms and color maps.",
     },
+    {
+        "name": "Sources",
+        "description": "Operations for getting point source information.",
+    },
+    {"name": "Highlights", "description": "Operations for gettting highlight boxes."},
 ]
 
 app = FastAPI(lifespan=lifespan, openapi_tags=tags_metadata)

@@ -11,9 +11,9 @@ from .sources import SourceGroup
 
 
 class DataConfiguration(BaseModel):
-    map_groups: list[MapGroup]
-    boxes: list[Box]
-    source_groups: list[SourceGroup]
+    map_groups: list[MapGroup] = []
+    boxes: list[Box] = []
+    source_groups: list[SourceGroup] = []
 
     def merge(self, other: "DataConfiguration") -> "DataConfiguration":
         return DataConfiguration(
@@ -34,6 +34,13 @@ class DataConfiguration(BaseModel):
     def layer(self, layer_id: str) -> Layer | None:
         for x in self.layers:
             if x.layer_id == layer_id:
+                return x
+
+        return None
+
+    def source_group(self, source_group_id: str) -> SourceGroup | None:
+        for x in self.source_groups:
+            if source_group_id == x.source_group_id:
                 return x
 
         return None
