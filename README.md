@@ -69,6 +69,14 @@ INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
 To view your maps, all you need to do is to go to
 [http://localhost:8000](http://localhost:8000) in a web browser.
 
+You can also use
+
+```
+tilemaker dev
+```
+
+which will launch an example version of the viewer containing sample data.
+
 
 Remote Usage
 ------------
