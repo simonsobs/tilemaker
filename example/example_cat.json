@@ -2,13 +2,20 @@
   {
     "ra": 90.222,
     "dec": -12.34,
-    "flux": 12.3,
-    "name": "Favourite"
+    "name": "Favourite",
+    "extra": {
+      "flux": 9.23,
+      "snr": 1.2
+    }
   },
   {
     "ra": 22.222,
     "dec": -19.34,
-    "flux": 11.3
+    "name": "The worst",
+    "extra": {
+      "flux": 9.23,
+      "snr": 1.2
+    }
   }
 ]
   

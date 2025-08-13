@@ -21,11 +21,29 @@ async def lifespan(app: FastAPI):
     """
     Lifespan event handler for the FastAPI app.
     """
-    app.cache = settings.create_cache()
-    yield  # This will run the app
+
+    settings.setup_app(app=app)
+
+    yield
 
 
-app = FastAPI(lifespan=lifespan)
+tags_metadata = [
+    {
+        "name": "Maps and Tiles",
+        "description": "Operations to retrieve metadata about maps, bands, and layers, as well as the tiles themselves.",
+    },
+    {
+        "name": "Histograms",
+        "description": "Operations for getting details about histograms and color maps.",
+    },
+    {
+        "name": "Sources",
+        "description": "Operations for getting point source information.",
+    },
+    {"name": "Highlights", "description": "Operations for gettting highlight boxes."},
+]
+
+app = FastAPI(lifespan=lifespan, openapi_tags=tags_metadata)
 STATIC_DIRECTORY = Path(__file__).parent / "static"
 
 if settings.add_cors:

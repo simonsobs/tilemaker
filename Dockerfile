@@ -25,8 +25,7 @@ RUN rm -rf /tileviewer
 
 RUN pip install --no-cache-dir --upgrade .
 RUN pip install --no-cache-dir --upgrade "gunicorn"
-RUN pip install --no-cache-dir --upgrade "psycopg[binary,pool]"
 
-EXPOSE 8080
+EXPOSE 8000
 
-CMD ["gunicorn", "-k", "uvicorn.workers.UvicornWorker", "-w", "8", "tilemaker.server:app", "--bind", "0.0.0.0:8080"]
+CMD ["gunicorn", "-k", "uvicorn.workers.UvicornWorker", "-w", "8", "tilemaker.server:app", "--bind", "0.0.0.0:8000"]

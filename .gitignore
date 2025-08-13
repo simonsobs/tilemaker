@@ -12,3 +12,5 @@ tilemaker/server/static/*
 *.pem
 *package-lock*
 *.json
+build/*
+tileviewer

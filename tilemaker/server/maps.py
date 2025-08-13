@@ -3,8 +3,8 @@ Endpoints for maps.
 """
 
 import io
+from typing import Literal
 
-import numpy as np
 from astropy.io import fits
 from fastapi import (
     APIRouter,
@@ -14,79 +14,62 @@ from fastapi import (
     Request,
     Response,
 )
-from sqlalchemy import select
-from sqlalchemy.orm import subqueryload
 
+from tilemaker.metadata.definitions import MapGroup
 from tilemaker.processing.extractor import extract
-from tilemaker.server.caching import (
-    TileCache,
-    TileNotFound,
-)
+from tilemaker.providers.fits import PullableTile
 
-from .. import database as db
-from .. import orm
-from ..orm.map import MapResponse
 from ..processing.renderer import Renderer, RenderOptions
-from .auth import allow_proprietary, filter_by_proprietary
 
 renderer = Renderer(format="webp")
 
-maps_router = APIRouter(prefix="/maps")
+maps_router = APIRouter(prefix="/maps", tags=["Maps and Tiles"])
 
 
-@maps_router.get("")
+@maps_router.get(
+    "",
+    response_model=list[MapGroup],
+    summary="Get the list of map groups.",
+    description="Retrieve a list of MapGroup shaped objects, each containing a list of Maps, with a list of Bands, and finally a list of Layers.",
+)
 def get_maps(request: Request):
-    with db.get_session() as session:
-        stmt = filter_by_proprietary(query=select(orm.Map), request=request)
-        results = session.exec(stmt).scalars().unique().all()
-
-    return results
+    return [x for x in request.app.config.map_groups if x.auth(request.auth.scopes)]
 
 
-@maps_router.get("/{map}", response_model=MapResponse)
-def get_map(map: int, request: Request):
-    with db.get_session() as session:
-        stmt = filter_by_proprietary(
-            select(orm.Map)
-            .options(subqueryload(orm.Map.bands))
-            .where(orm.Map.id == map),
-            request=request,
-        )
-        result = session.exec(stmt).unique().one_or_none()
-
-    if result is None:
-        raise HTTPException(status_code=404, detail="Map not found")
-
-    return result[0]
-
-
-@maps_router.get("/{map}/{band}/submap/{left}/{right}/{top}/{bottom}/image.{ext}")
+@maps_router.get(
+    "/{layer_id}/submap/{left}/{right}/{top}/{bottom}/image.{ext}",
+    summary="Generate a cut-out of the map.",
+    description="Download and extract (from the base map) a rendered cut-out. Downloads at the full resolution of the underlying map with no additional filter function.",
+)
 def get_submap(
-    map: int,
-    band: int,
+    layer_id: str,
     left: float,
     right: float,
     top: float,
     bottom: float,
-    ext: str,
+    ext: Literal["jpg", "webp", "png", "fits"],
     request: Request,
+    bt: BackgroundTasks,
     render_options: RenderOptions = Depends(RenderOptions),
+    show_grid: bool = False,
 ):
     """
     Get a submap of the specified band.
     """
 
-    if ext not in ["jpg", "webp", "png", "fits"]:
-        raise HTTPException(status_code=400, detail="Not an acceptable extension")
-
-    submap = extract(
-        band_id=band,
+    submap, pushables = extract(
+        layer_id=layer_id,
         left=left,
         right=right,
         top=top,
         bottom=bottom,
-        proprietary=allow_proprietary(request=request),
+        tiles=request.app.tiles,
+        grants=request.auth.scopes,
+        metadata=request.app.config,
+        show_grid=show_grid,
     )
+
+    bt.add_task(request.app.tiles.push, pushables)
 
     if ext == "jpg":
         with io.BytesIO() as output:
@@ -108,68 +91,29 @@ def get_submap(
 
 
 def core_tile_retrieval(
-    db,
-    cache: TileCache,
-    map: int,
-    band: str,
+    layer: str,
     level: int,
     y: int,
     x: int,
     bt: BackgroundTasks,
     request: Request,
 ):
-    user_has_proprietary = allow_proprietary(request=request)
-
-    # Check if the tile is in the cache
-    try:
-        public_tile_cache = cache.get_cache(
-            band, x, y, level, proprietary=user_has_proprietary
-        )
-        return public_tile_cache
-    except TileNotFound:
-        pass
-
-    with db.get_session() as session:
-        stmt = select(orm.Tile).where(
-            orm.Tile.band_id == int(band),
-            orm.Tile.level == int(level),
-            orm.Tile.y == int(y),
-            orm.Tile.x == int(x),
-        )
-
-        result = session.exec(stmt).one_or_none()
-        result = result[0]
-        tile_size = result.band.tile_size
-
-    if result is not None and result.data is not None:
-        numpy_buf = np.frombuffer(result.data, dtype=result.data_type).reshape(
-            (tile_size, tile_size)
-        )
-    else:
-        numpy_buf = None
-
-    # Send her back to the cache
-    bt.add_task(
-        cache.set_cache,
-        band=int(band),
-        x=int(x),
-        y=int(y),
-        level=int(level),
-        data=numpy_buf,
-        proprietary=result.proprietary,
+    tile, pushables = request.app.tiles.pull(
+        PullableTile(layer_id=layer, x=x, y=y, level=level, grants=request.auth.scopes)
     )
 
-    # Critical -- otherwise non-proprietary users will get proprietary tiles
-    if result.proprietary and not user_has_proprietary:
-        return None
+    bt.add_task(request.app.tiles.push, pushables)
 
-    return numpy_buf
+    return tile.data
 
 
-@maps_router.get("/{map}/{band}/{level}/{y}/{x}/tile.{ext}")
+@maps_router.get(
+    "/{layer}/{level}/{y}/{x}/tile.{ext}",
+    summary="Retrieve an individual tile.",
+    description="Individual tiles are hosted at a layer level, with them having three axes: `level`, `y`, and `x`. We support extensions of 'png', 'webp', and 'jpg'.",
+)
 def get_tile(
-    map: int,
-    band: str,
+    layer: str,
     level: int,
     y: int,
     x: int,
@@ -208,10 +152,7 @@ def get_tile(
         raise HTTPException(status_code=400, detail="Not an acceptable extension")
 
     numpy_buf = core_tile_retrieval(
-        db=db,
-        cache=request.app.cache,
-        map=map,
-        band=band,
+        layer=layer,
         level=level,
         y=y,
         x=x,

@@ -7,13 +7,13 @@ import sys
 
 from astropy import table
 
-from tilemaker.client.add import CatalogIngestItem
+from tilemaker.metadata.sources import Source
 
 data = table.Table.read(sys.argv[1])
 
 items = []
 
-for ra, dec, name, flux in zip(
+for ra, dec, name, snr in zip(
     data["RADeg"], data["decDeg"], data["name"], data["fixed_SNR"]
 ):
     if ra > 180:
@@ -22,11 +22,13 @@ for ra, dec, name, flux in zip(
     print(ra, dec)
 
     items.append(
-        CatalogIngestItem(
+        Source(
             name=name,
             ra=ra,
             dec=dec,
-            flux=flux,
+            extra={
+                "SNR": snr
+            }
         )
     )
 

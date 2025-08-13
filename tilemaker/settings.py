@@ -2,14 +2,15 @@
 Settings for the project.
 """
 
+from pathlib import Path
 from typing import Literal
 
+from fastapi import FastAPI
 from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    database_url: str = "sqlite:///./tilemaker.db"
-    "SQLAlchemy-appropriate database URL."
+    config_path: Path = "config.json"
 
     origins: list[str] | None = ["*"]
     add_cors: bool = True
@@ -20,12 +21,6 @@ class Settings(BaseSettings):
 
     api_endpoint: str = "./"
     "The location of the API endpoint. Default assumes from the same place as the server."
-
-    use_in_memory_cache: bool = True
-    "Use an in-memory cache for the tiles. Can improve performance by reducing database queries."
-
-    proprietary_scope: str = "simonsobs"
-    "The scope to require for proprietary data access."
 
     auth_type: Literal["soauth", "mock"] = "mock"
     "The authentication type to use."
@@ -45,27 +40,29 @@ class Settings(BaseSettings):
     "Host for the Memcached server."
     memcached_port: int = 11211
     "Port for the Memcached server."
-    memcached_client_pool_size: int = 16
+    memcached_client_pool_size: int = 4
     "Number of connections in the Memcached client pool."
     memcached_timeout_seconds: float = 0.5
     "Timeout for Memcached operations in seconds."
+    precache: bool = True
+    "Whether or not to pre-cache the histogram for every layer. This will also pre-cache the first layer of tiles."
 
     class Config:
         env_prefix = "TILEMAKER_"
 
-    def create_cache(self):
+    def create_cache(self) -> list:
         """
         Create a cache instance based on the settings.
         """
         if self.cache_type == "in_memory":
-            from tilemaker.server.caching import InMemoryCache
+            from tilemaker.providers.caching import InMemoryCache
 
-            return InMemoryCache()
+            return [InMemoryCache()]
         elif self.cache_type == "memcached":
             from pymemcache import serde
             from pymemcache.client.base import PooledClient
 
-            from tilemaker.server.caching import MemcachedCache
+            from tilemaker.providers.caching import MemcachedCache
 
             client = PooledClient(
                 server=(self.memcached_host, self.memcached_port),
@@ -74,11 +71,66 @@ class Settings(BaseSettings):
                 timeout=self.memcached_timeout_seconds,
                 ignore_exc=True,
             )
-            return MemcachedCache(client=client)
+            return [MemcachedCache(client=client)]
         else:
-            from tilemaker.server.caching import PassThroughCache
+            return []
 
-            return PassThroughCache()
+    def create_analysis_cache(self) -> list:
+        """
+        Create a cache instance based on the settings.
+        """
+        if self.cache_type == "in_memory":
+            from tilemaker.analysis.providers import InMemoryAnalysisCache
+
+            return [InMemoryAnalysisCache()]
+        elif self.cache_type == "memcached":
+            from pymemcache import serde
+            from pymemcache.client.base import PooledClient
+
+            from tilemaker.analysis.providers import MemcachedAnalysisCache
+
+            client = PooledClient(
+                server=(self.memcached_host, self.memcached_port),
+                serde=serde.pickle_serde,
+                max_pool_size=self.memcached_client_pool_size,
+                timeout=self.memcached_timeout_seconds,
+                ignore_exc=True,
+            )
+            return [MemcachedAnalysisCache(client=client)]
+        else:
+            return []
+
+    def setup_app(self, app: FastAPI):
+        from tilemaker.analysis.core import Analyses
+        from tilemaker.providers.core import Tiles
+        from tilemaker.providers.fits import FITSTileProvider
+
+        if not hasattr(app, "config"):
+            app.config = settings.parse_config()
+
+        cache = self.create_cache()
+
+        tp = FITSTileProvider(map_groups=app.config.map_groups)
+        app.tiles = Tiles(pullable=cache + [tp], pushable=cache)
+
+        cache = self.create_analysis_cache()
+        app.analyses = Analyses(
+            pullable=cache, pushable=cache, tiles=app.tiles, metadata=app.config
+        )
+
+        if self.precache:
+            for layer in app.config.layers:
+                app.analyses.pull(
+                    f"hist-{layer.layer_id}",
+                    grants=set(layer.layer_id) if layer.layer_id is not None else None,
+                )
+
+        return app
+
+    def parse_config(self):
+        from tilemaker.metadata.core import parse_config
+
+        return parse_config(self.config_path)
 
 
 settings = Settings()

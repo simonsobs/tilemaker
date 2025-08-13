@@ -5,15 +5,15 @@ services:
       dockerfile: "Dockerfile"
     container_name: "tilemaker-server"
     ports:
-      - "8080:8080"
+      - "8000:8000"
     stdin_open: true
     tty: true
     volumes:
       - type: "bind"
-        # Have a local db you want to use? Bind it here
-        source: "./tilemaker.db"
-        target: "/tilemaker.db"
-    environment:
-      # Point to your db; in this test case, it's a local directory with a sqlite db
-      # that is bound to /tilemaker.db in the container (see line 15 and beyond)
-      - TILEMAKER_DATABASE_URL=sqlite:////tilemaker.db
+        # Get your maps in!
+        source: "./mymaps"
+        target: "/mymaps"
+      - type: "bind"
+        # Export your config file into the container
+        source: "./config.json"
+        target: "/config.json"
