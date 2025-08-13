@@ -13,3 +13,4 @@ tilemaker/server/static/*
 *package-lock*
 *.json
 build/*
+tileviewer
