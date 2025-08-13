@@ -59,6 +59,7 @@ class InMemoryCache(TileProvider):
 
         if tile.source == self.internal_provider_id:
             log.debug("provider.inmemory.present")
+            return
 
         tile.source = self.internal_provider_id
         self.cache[tile.hash] = tile
@@ -109,6 +110,7 @@ class MemcachedCache(TileProvider):
 
         if tile.source == self.internal_provider_id:
             log.debug("provider.memcached.present")
+            return
 
         tile.source = self.internal_provider_id
         self.client.set(tile.hash, (tile.grant, tile.data), noreply=True)

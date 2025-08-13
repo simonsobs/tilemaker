@@ -41,7 +41,7 @@ def histograms_cmap(cmap: str, request: Request):
                 data = output.getvalue()
                 CMAP_CACHE[cmap] = data
 
-            return Response(content=data, media_type="image/png")
+        return Response(content=data, media_type="image/png")
     except ValueError:
         raise HTTPException(status_code=404, detail="Color map not found")
 
