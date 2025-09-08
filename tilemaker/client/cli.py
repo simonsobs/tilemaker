@@ -41,7 +41,7 @@ def dev(host: str = "127.0.0.1", port: int = 8000):
 
     app.config = DataConfiguration(
         map_groups=simple.add_sample_map(),
-        sources=simple.add_sample_source_list(),
+        source_groups=simple.add_sample_source_list(),
         boxes=simple.add_sample_box(),
     )
 
