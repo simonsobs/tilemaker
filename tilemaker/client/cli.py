@@ -66,6 +66,19 @@ def open(filenames: list[Path], host: str = "127.0.0.1", port: int = 8000):
     run(app, host=host, port=port)
 
 
+@APP.command()
+def genconfig(filenames: list[Path], output: Path = Path("./generated_config.json")):
+    """
+    Start the development/user-hosted server for tilemaker.
+    """
+    from tilemaker.metadata.generation import generate
+
+    generated_config = generate(filenames)
+
+    with output.open("w") as handle:
+        handle.write(generated_config.model_dump_json(indent=2))
+
+
 def main():
     global APP
 

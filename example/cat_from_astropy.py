@@ -21,16 +21,7 @@ for ra, dec, name, snr in zip(
 
     print(ra, dec)
 
-    items.append(
-        Source(
-            name=name,
-            ra=ra,
-            dec=dec,
-            extra={
-                "SNR": snr
-            }
-        )
-    )
+    items.append(Source(name=name, ra=ra, dec=dec, extra={"SNR": snr}))
 
 with open("created_cat.json", "w") as f:
     json.dump([x.dict() for x in items], f)
