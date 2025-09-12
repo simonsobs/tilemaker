@@ -127,12 +127,14 @@ def add_sample_source_list(number: int = 4):
                 )
             )
 
-    return [SourceGroup(
-        source_group_id="example",
-        name="Source Group",
-        description="Example",
-        sources=sources,
-    )]
+    return [
+        SourceGroup(
+            source_group_id="example",
+            name="Source Group",
+            description="Example",
+            sources=sources,
+        )
+    ]
 
 
 def add_sample_box():
