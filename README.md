@@ -397,6 +397,14 @@ You can restrict access at any level with the optional `grant` keyword. Users
 without this specific grant will not be able to access it (e.g.
 `"grant":"ivaraccess"` in the above).
 
+#### Getting a Starting Point
+
+You can generate the configuration that would be created for the `tilemaker open`
+command with:
+```
+tilemaker genconfig *.fits --output my_output_file.json
+```
+
 ### Source Specification
 
 Sources are specified as part of 'Source Groups' which are effectively individual
