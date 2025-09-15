@@ -88,15 +88,15 @@ class MemcachedCache(TileProvider):
 
         grant, data = res
 
-        if grant and grant != tile.grant:
-            log = log.bind(tile_grant=grant, user_grant=tile.grant)
+        if grant and grant not in tile.grants:
+            log = log.bind(tile_grant=grant, user_grant=tile.grants)
             log.debug("provider.memcached.proprietary_hidden")
             raise TileNotFoundError(f"Tile {tile.hash} not found in cache")
 
         log.debug("provider.memcached.pulled")
 
         return PushableTile(
-            band_id=tile.band_id,
+            layer_id=tile.layer_id,
             x=tile.x,
             y=tile.y,
             level=tile.y,

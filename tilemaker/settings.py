@@ -122,7 +122,7 @@ class Settings(BaseSettings):
             for layer in app.config.layers:
                 app.analyses.pull(
                     f"hist-{layer.layer_id}",
-                    grants=set(layer.layer_id) if layer.layer_id is not None else None,
+                    grants={layer.grant} if layer.grant is not None else None,
                 )
 
         return app
