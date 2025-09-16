@@ -15,6 +15,10 @@ from pydantic import BaseModel
 from tilemaker.metadata.core import DataConfiguration
 from tilemaker.metadata.definitions import Band, FITSLayerProvider, Layer, Map, MapGroup
 
+# Define the hits unit
+hits = units.def_unit("hits", units.dimensionless_unscaled)
+units.add_enabled_units([hits])
+
 
 def generate(filenames: list[Path]):
     map_files = [x for x in filenames if "fits" in x.name]
@@ -228,6 +232,22 @@ DISCRIMINATORS = {
                 units=None,
                 vmin=0.0,
                 vmax=1.0,
+                cmap="viridis",
+                index=None,
+            )
+        ],
+    ),
+    "hits": FITSDiscriminator(
+        label="hits",
+        filename_contains=["hits"],
+        proto_layers=[
+            ProtoLayer(
+                name="Hits",
+                description="Hits map",
+                quantity="n",
+                units=" ",
+                vmin=0.0,
+                vmax=100.0,
                 cmap="viridis",
                 index=None,
             )
