@@ -80,7 +80,8 @@ def layers_from_fits(
                 break
         if not passed:
             log.warning("discrimination.failed")
-            raise ValueError(f"Unable to determine map type of {filename}")
+            discriminator = DISCRIMINATORS['unknown']
+            raise ValueError(f"Unable to determine map type of {filename}. Defaulting to unknown.")
 
     header = data[discriminator.hdu].header
     map_units = unit_override or header.get("BUNIT", None)
@@ -248,6 +249,21 @@ DISCRIMINATORS = {
                 units=" ",
                 vmin=0.0,
                 vmax=100.0,
+                cmap="viridis",
+                index=None,
+            )
+        ],
+    ),
+    "unknown": FITSDiscriminator(
+        label="Unknown",
+        proto_layers=[
+            ProtoLayer(
+                name="Unknown",
+                description="Unknown",
+                quantity=None,
+                units=None,
+                vmin=-1,
+                vmax=1,
                 cmap="viridis",
                 index=None,
             )
