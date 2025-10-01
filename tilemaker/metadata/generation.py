@@ -95,6 +95,7 @@ def layers_from_fits(
                     )
                 ],
             )
+            unit_override = "unk"
 
     header = data[discriminator.hdu].header
     map_units = unit_override or header.get("BUNIT", None)
@@ -134,13 +135,17 @@ class ProtoLayer(BaseModel):
     index: int | None = None
 
     def convert_data(self, map_units: str | None):
-        map_units = map_units or self.units
+        if map_units != "unk":
+            map_units = map_units or self.units
 
-        vmin = units.Quantity(self.vmin, unit=self.units)
-        vmax = units.Quantity(self.vmax, unit=self.units)
+            vmin = units.Quantity(self.vmin, unit=self.units)
+            vmax = units.Quantity(self.vmax, unit=self.units)
 
-        vmin = vmin.to_value(map_units)
-        vmax = vmax.to_value(map_units)
+            vmin = vmin.to_value(map_units)
+            vmax = vmax.to_value(map_units)
+        else:
+            vmin = self.vmin
+            vmax = self.vmax
 
         return {
             "name": self.name,
