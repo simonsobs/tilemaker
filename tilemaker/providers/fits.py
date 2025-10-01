@@ -105,12 +105,21 @@ def extract_array(
     shape,
     position,
     slice_step,
-    fill_value=np.nan,
+    fill_value=None,
 ):
     """
     Simplified from nddata.utils from astropy. Fixed to 'partial' mode
     """
 
+    # Default fill_value
+    if fill_value is None:
+        if np.issubdtype(array_large.dtype, np.floating):
+            fill_value = np.nan
+        elif np.issubdtype(array_large.dtype, np.integer):
+            fill_value = 0
+        elif np.issubdtype(array_large.dtype, np.bool_):
+            fill_value = False
+        
     if np.isscalar(shape):
         shape = (shape,)
     if np.isscalar(position):
