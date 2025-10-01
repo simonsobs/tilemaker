@@ -129,6 +129,9 @@ class ProtoLayer(BaseModel):
         vmin = vmin.to_value(map_units)
         vmax = vmax.to_value(map_units)
 
+        # vmin = None #!!!
+        # vmax = None
+
         return {
             "name": self.name,
             "description": self.description,

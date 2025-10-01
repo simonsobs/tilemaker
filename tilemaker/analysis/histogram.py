@@ -6,6 +6,7 @@ from time import perf_counter
 
 import numpy as np
 import structlog
+from astropy import units
 
 from tilemaker.metadata.core import DataConfiguration
 from tilemaker.providers.core import PullableTile, TileNotFoundError, Tiles
@@ -41,15 +42,8 @@ class HistogramProduct(AnalysisProduct):
 
         timing_start = perf_counter()
 
-        start = layer.vmin * 4
-        end = layer.vmax * 4
-        bins = 128
 
-        log = log.bind(start=start, end=end, bins=bins)
-
-        edges = np.linspace(start, end, bins + 1)
-        counts = np.zeros(bins)
-
+        tdata = []
         for tile_x in [0, 1]:
             tile, pushable = tiles.pull(
                 PullableTile(
@@ -63,9 +57,24 @@ class HistogramProduct(AnalysisProduct):
             )
 
             tiles.push(pushable)
+            tdata.append(tile.data)
 
-            if tile.data is not None:
-                counts += np.histogram(tile.data, bins=edges)[0]
+        layer.vmin = np.nanmin(tdata)
+        layer.vmax = np.nanmax(tdata)
+        print(layer.vmin,layer.vmax)
+
+        start = layer.vmin * 4
+        end = layer.vmax * 4
+        bins = 128
+
+        log = log.bind(start=start, end=end, bins=bins)
+
+        edges = np.linspace(start, end, bins + 1)
+        counts = np.zeros(bins)
+
+        for tile_x in [0, 1]:
+            if tdata[tile_x] is not None:
+                counts += np.histogram(tdata[tile_x], bins=edges)[0]
 
         timing_end = perf_counter()
         log = log.bind(dt=timing_end - timing_start)
