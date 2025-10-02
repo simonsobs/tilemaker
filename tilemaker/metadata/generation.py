@@ -129,8 +129,8 @@ class ProtoLayer(BaseModel):
     description: str | None = None
     quantity: str | None = None
     units: str | None = None
-    vmin: float | Literal["auto"] | None = None
-    vmax: float | Literal["auto"] | None = None
+    vmin: float | Literal["auto"] | None = 'auto'
+    vmax: float | Literal["auto"] | None = 'auto'
     cmap: str | None = None
     index: int | None = None
 
