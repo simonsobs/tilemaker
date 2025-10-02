@@ -6,7 +6,6 @@ from time import perf_counter
 
 import numpy as np
 import structlog
-from astropy import units
 
 from tilemaker.metadata.core import DataConfiguration
 from tilemaker.providers.core import PullableTile, TileNotFoundError, Tiles
