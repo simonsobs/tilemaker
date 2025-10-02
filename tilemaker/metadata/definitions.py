@@ -192,8 +192,8 @@ class Layer(AuthenticatedModel):
     number_of_levels: int | None = None
     tile_size: int | None = None
 
-    vmin: float | None = None
-    vmax: float | None = None
+    vmin: float | Literal["auto"] | None = 'auto'
+    vmax: float | Literal["auto"] | None = 'auto'
     cmap: str | None = None
 
     def model_post_init(self, _):
