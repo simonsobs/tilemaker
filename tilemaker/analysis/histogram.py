@@ -42,7 +42,7 @@ class HistogramProduct(AnalysisProduct):
 
         timing_start = perf_counter()
 
-
+        # Get the two tiles in the top (coarsest) layer into memory
         tdata = []
         for tile_x in [0, 1]:
             tile, pushable = tiles.pull(
@@ -59,10 +59,25 @@ class HistogramProduct(AnalysisProduct):
             tiles.push(pushable)
             tdata.append(tile.data)
 
-        layer.vmin = np.nanmin(tdata)
-        layer.vmax = np.nanmax(tdata)
-        print(layer.vmin,layer.vmax)
+        tdata = np.asarray(tdata)
+        
+        # If vmin or vmax is auto, determine it automatically
+        # from the distribution of pixels in the top-level maps
+        if layer.vmin=='auto' or layer.vmax=='auto':
+            quantile = 0.01 # TODO: Raise this to a configuration/UI option
+            # The following logic is copied from pixell/enplot.py
+            vals = np.sort(tdata[np.isfinite(tdata)])
+            n    = len(vals)
+            if n == 0: raise ValueError("No finite values in the map.")
+            i    = min(n-1,int(round(n*quantile)))
+            v1, v2 = vals[i], vals[n-1-i]
+            # Avoid division by zero later, in case min and max are the same
+            if v2 == v1: (v1,v2) = (v1-1,v2+1)
+        
+        if layer.vmin=='auto': layer.vmin = v1.item()
+        if layer.vmax=='auto': layer.vmax = v2.item()
 
+        # Construct the histogram
         start = layer.vmin * 4
         end = layer.vmax * 4
         bins = 128
@@ -76,6 +91,7 @@ class HistogramProduct(AnalysisProduct):
             if tdata[tile_x] is not None:
                 counts += np.histogram(tdata[tile_x], bins=edges)[0]
 
+        
         timing_end = perf_counter()
         log = log.bind(dt=timing_end - timing_start)
         log.info("histogram.built")

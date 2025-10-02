@@ -5,7 +5,7 @@ Create a set of metadata directly from a provider.
 import os
 from hashlib import md5
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import structlog
 from astropy import units
@@ -88,8 +88,8 @@ def layers_from_fits(
                         description="Unknown layer",
                         quantity=None,
                         units=None,
-                        vmin=-1.0,
-                        vmax=1.0,
+                        vmin='auto',
+                        vmax='auto',
                         cmap="viridis",
                         index=None,
                     )
@@ -129,8 +129,8 @@ class ProtoLayer(BaseModel):
     description: str | None = None
     quantity: str | None = None
     units: str | None = None
-    vmin: float | None = None
-    vmax: float | None = None
+    vmin: float | Literal["auto"] | None = None
+    vmax: float | Literal["auto"] | None = None
     cmap: str | None = None
     index: int | None = None
 
@@ -146,9 +146,6 @@ class ProtoLayer(BaseModel):
         else:
             vmin = self.vmin
             vmax = self.vmax
-
-        # vmin = None #!!!
-        # vmax = None
 
         return {
             "name": self.name,
@@ -270,21 +267,6 @@ DISCRIMINATORS = {
                 units=" ",
                 vmin=0.0,
                 vmax=100.0,
-                cmap="viridis",
-                index=None,
-            )
-        ],
-    ),
-    "unknown": FITSDiscriminator(
-        label="Unknown",
-        proto_layers=[
-            ProtoLayer(
-                name="Unknown",
-                description="Unknown",
-                quantity=None,
-                units=None,
-                vmin=-1,
-                vmax=1,
                 cmap="viridis",
                 index=None,
             )
