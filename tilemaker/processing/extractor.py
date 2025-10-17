@@ -8,7 +8,6 @@ from time import perf_counter
 import numpy as np
 import structlog
 from astropy.coordinates import SkyCoord, StokesCoord
-from astropy.units import deg
 
 from tilemaker.metadata.core import DataConfiguration
 from tilemaker.providers.core import PullableTile, PushableTile, Tiles
@@ -71,10 +70,17 @@ def extract(
 
     wcs = layer.provider.get_wcs()
 
+    # Pull out some WCS info for a dec offset
+    _, crpix2 = wcs.wcs.crpix[:2]
+    _, cdelt2 = wcs.wcs.cdelt[:2]
+
+    # Compute declination offset dynamically
+    dec_offset = -1 * (crpix2 * cdelt2 - 90)
+    
     # Convert RA/Dec to pixel values. No idea why we need to take the negative here.
     # Probably something I don't understand about wcs.
-    tr = SkyCoord(ra=-right * deg, dec=top * deg)
-    bl = SkyCoord(ra=-left * deg, dec=bottom * deg)
+    tr = SkyCoord(ra=-right, dec=(top + dec_offset), unit="deg")
+    bl = SkyCoord(ra=-left, dec=(bottom + dec_offset), unit="deg")
 
     log = log.bind(tr=tr, bl=bl)
 
@@ -100,7 +106,7 @@ def extract(
 
     log = log.bind(size=(y_size, x_size))
 
-    buffer = np.zeros((int(top_pix - bottom_pix), (int(right_pix - left_pix))))
+    buffer = np.zeros((int(y_size), (int(x_size))))
 
     # Figure out which tiles we overlap.
     end_tile_x = int(math.ceil(float(right_pix) / layer.tile_size))
