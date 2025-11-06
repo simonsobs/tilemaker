@@ -52,7 +52,7 @@ def dev(host: str = "127.0.0.1", port: int = 8000):
 
 
 @APP.command()
-def open(filenames: list[Path], host: str = "127.0.0.1", port: int = 8000):
+def open(filenames: list[Path], host: str = "127.0.0.1", port: int = 8000, auto_contrast: bool = False):
     """
     Start the development/user-hosted server for tilemaker.
     """
@@ -61,19 +61,19 @@ def open(filenames: list[Path], host: str = "127.0.0.1", port: int = 8000):
     from tilemaker.metadata.generation import generate
     from tilemaker.server import app
 
-    app.config = generate(filenames)
+    app.config = generate(filenames, force_auto_contrast=auto_contrast)
 
     run(app, host=host, port=port)
 
 
 @APP.command()
-def genconfig(filenames: list[Path], output: Path = Path("./generated_config.json")):
+def genconfig(filenames: list[Path], output: Path = Path("./generated_config.json"), auto_contrast: bool = False):
     """
     Start the development/user-hosted server for tilemaker.
     """
     from tilemaker.metadata.generation import generate
 
-    generated_config = generate(filenames)
+    generated_config = generate(filenames, force_auto_contrast=auto_contrast)
 
     with output.open("w") as handle:
         handle.write(generated_config.model_dump_json(indent=2))

@@ -47,6 +47,10 @@ class Settings(BaseSettings):
     precache: bool = True
     "Whether or not to pre-cache the histogram for every layer. This will also pre-cache the first layer of tiles."
 
+    # Analysis settings
+    analysis_auto_contrast_percentile: float = 0.01
+    "The percentile to use for auto-contrast setting for vmin and vmax."
+
     class Config:
         env_prefix = "TILEMAKER_"
 
