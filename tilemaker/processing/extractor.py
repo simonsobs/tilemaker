@@ -9,6 +9,7 @@ import numpy as np
 import structlog
 from astropy.coordinates import SkyCoord, StokesCoord
 from astropy.units import Quantity
+from astropy.wcs import WCS
 
 from tilemaker.metadata.core import DataConfiguration
 from tilemaker.providers.core import PullableTile, PushableTile, Tiles
@@ -69,47 +70,58 @@ def extract(
         log.warning("extractor.no_layer")
         raise ValueError(f"Layer with ID {layer_id} not found.")
 
-    wcs = layer.provider.get_wcs()
+    # This is the base WCS, aligned with the _grid of the file_
+    # not the _tile grid_, which is what we want.
+    base_wcs = layer.provider.get_wcs()
 
-    # Pull out some WCS info for a dec offset
-    _, crpix2 = wcs.wcs.crpix[:2]
-    _, cdelt2 = wcs.wcs.cdelt[:2]
+    CDELT_RA = base_wcs.wcs.cdelt[0]
+    CDELT_DEC = base_wcs.wcs.cdelt[1]
 
-    # Compute declination offset dynamically
-    dec_offset = -1 * (crpix2 * cdelt2 - 90)
+    NAXIS1 = int(360.0 / abs(CDELT_RA))
+    NAXIS2 = int(180.0 / abs(CDELT_DEC))
+
+    # The tile grid behaves like a giant image with the same
+    # resolution as the base layer, but covering the whole sky.
+    wcs = WCS({
+            "NAXIS": 2,
+            "CRPIX1": NAXIS1 * 0.5,
+            "CRPIX2": NAXIS2 * 0.5 + 0.5,
+            "CRVAL1": 0.0,
+            "NAXIS1": NAXIS1,
+            "NAXIS2": NAXIS2,
+            "CRVAL2": 0.0,
+            "CDELT1": CDELT_RA,
+            "CDELT2": -CDELT_DEC,
+            "CTYPE1": "RA---CAR",
+            "CTYPE2": "DEC--CAR",
+            "CUNIT1": "deg",
+            "CUNIT2": "deg",
+            "LONPOLE": 90.0,
+            "LATPOLE": 0.0,
+            "RADESYS": "ICRS",
+        }
+    )
 
     # Convert RA/Dec to pixel values. No idea why we need to take the negative here.
     # Probably something I don't understand about wcs.
-    tr = SkyCoord(ra=-right, dec=(top + dec_offset), unit="deg")
-    bl = SkyCoord(ra=-left, dec=(bottom + dec_offset), unit="deg")
+    tr = SkyCoord(ra=right, dec=top, unit="deg")
+    bl = SkyCoord(ra=left, dec=bottom, unit="deg")
 
     log = log.bind(tr=tr, bl=bl)
 
-    if layer.provider.index is not None:
-        try:
-            right_pix, top_pix, _ = wcs.world_to_pixel(
-                tr, StokesCoord(layer.provider.index)
-            )
-            left_pix, bottom_pix, _ = wcs.world_to_pixel(
-                bl, StokesCoord(layer.provider.index)
-            )
-        except ValueError:
-            # Map was not tagged as Stokes
-            right_pix, top_pix, _ = wcs.world_to_pixel(
-                tr, Quantity(layer.provider.index, dtype=int)
-            )
-            left_pix, bottom_pix, _ = wcs.world_to_pixel(
-                bl, Quantity(layer.provider.index, dtype=int)
-            )
-    else:
-        right_pix, top_pix = wcs.world_to_pixel(tr)
-        left_pix, bottom_pix = wcs.world_to_pixel(bl)
+    right_pix, top_pix = wcs.world_to_pixel(tr)
+    left_pix, bottom_pix = wcs.world_to_pixel(bl)
 
     # Convert to integers
     left_pix = int(left_pix)
     top_pix = int(top_pix)
     right_pix = int(right_pix)
     bottom_pix = int(bottom_pix)
+
+    if left_pix > right_pix:
+        left_pix, right_pix = right_pix, left_pix
+    if bottom_pix > top_pix:
+        bottom_pix, top_pix = top_pix, bottom_pix
 
     y_size = top_pix - bottom_pix
     x_size = right_pix - left_pix
