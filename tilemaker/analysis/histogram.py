@@ -7,6 +7,7 @@ from time import perf_counter
 import numpy as np
 import structlog
 
+from tilemaker.analysis.core import AnalysisProvider
 from tilemaker.metadata.core import DataConfiguration
 from tilemaker.providers.core import PullableTile, TileNotFoundError, Tiles
 from tilemaker.settings import settings
@@ -17,23 +18,27 @@ from .products import AnalysisProduct
 class HistogramProduct(AnalysisProduct):
     layer_id: str
 
-    counts: list[int]
-    edges: list[float]
+    counts: list[int] | None = None
+    edges: list[float] | None = None
 
-    vmin: float
-    vmax: float
+    vmin: float | None = None
+    vmax: float | None = None
 
     @property
     def hash(self):
         return f"hist-{self.layer_id}"
+    
+    def read(
+        self, cache: AnalysisProvider, grants: set[str]
+    ):
+        return cache.pull(self.hash, grants=grants)
 
-    @classmethod
     def build(
-        cls, tiles: Tiles, metadata: DataConfiguration, analysis_id: str
-    ) -> "HistogramProduct":
+        self, tiles: Tiles, metadata: DataConfiguration, cache: AnalysisProvider, grants: set[str]
+    ):
         log = structlog.get_logger()
 
-        layer_id = analysis_id.replace("hist-", "")
+        layer_id = self.layer_id
 
         log = log.bind(layer_id=layer_id)
 
@@ -121,11 +126,12 @@ class HistogramProduct(AnalysisProduct):
         log = log.bind(dt=timing_end - timing_start)
         log.info("histogram.built")
 
-        return cls(
-            layer_id=layer_id,
-            counts=counts,
-            edges=edges,
-            grant=layer.grant,
-            vmin=vmin,
-            vmax=vmax
-        )
+        self.counts = counts.tolist()
+        self.edges = edges.tolist()
+        self.vmin = vmin
+        self.vmax = vmax
+        self.grant = layer.grant
+
+        cache.push(self)
+
+        return self

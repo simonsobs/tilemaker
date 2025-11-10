@@ -8,6 +8,7 @@ from time import perf_counter
 import numpy as np
 import structlog
 from astropy.coordinates import SkyCoord, StokesCoord
+from astropy.units import Quantity
 
 from tilemaker.metadata.core import DataConfiguration
 from tilemaker.providers.core import PullableTile, PushableTile, Tiles
@@ -76,7 +77,7 @@ def extract(
 
     # Compute declination offset dynamically
     dec_offset = -1 * (crpix2 * cdelt2 - 90)
-    
+
     # Convert RA/Dec to pixel values. No idea why we need to take the negative here.
     # Probably something I don't understand about wcs.
     tr = SkyCoord(ra=-right, dec=(top + dec_offset), unit="deg")
@@ -85,12 +86,21 @@ def extract(
     log = log.bind(tr=tr, bl=bl)
 
     if layer.provider.index is not None:
-        right_pix, top_pix, _ = wcs.world_to_pixel(
-            tr, StokesCoord(layer.provider.index)
-        )
-        left_pix, bottom_pix, _ = wcs.world_to_pixel(
-            bl, StokesCoord(layer.provider.index)
-        )
+        try:
+            right_pix, top_pix, _ = wcs.world_to_pixel(
+                tr, StokesCoord(layer.provider.index)
+            )
+            left_pix, bottom_pix, _ = wcs.world_to_pixel(
+                bl, StokesCoord(layer.provider.index)
+            )
+        except ValueError:
+            # Map was not tagged as Stokes
+            right_pix, top_pix, _ = wcs.world_to_pixel(
+                tr, Quantity(layer.provider.index, dtype=int)
+            )
+            left_pix, bottom_pix, _ = wcs.world_to_pixel(
+                bl, Quantity(layer.provider.index, dtype=int)
+            )
     else:
         right_pix, top_pix = wcs.world_to_pixel(tr)
         left_pix, bottom_pix = wcs.world_to_pixel(bl)

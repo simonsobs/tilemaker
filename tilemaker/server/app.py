@@ -15,6 +15,7 @@ from .highlights import highlights_router
 from .histogram import histogram_router
 from .maps import maps_router
 from .sources import sources_router
+from .analysis import analysis_router
 
 
 async def lifespan(app: FastAPI):
@@ -61,6 +62,7 @@ app.include_router(highlights_router)
 app.include_router(histogram_router)
 app.include_router(sources_router)
 app.include_router(maps_router)
+app.include_router(analysis_router)
 
 if settings.serve_frontend:
     # The index.html is actually in static. But if anyone wants to access it

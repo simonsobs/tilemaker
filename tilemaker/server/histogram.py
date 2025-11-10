@@ -7,10 +7,12 @@ import io
 import matplotlib.pyplot as plt
 import numpy as np
 from fastapi import APIRouter, HTTPException, Request, Response
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from tilemaker.analysis.core import ProductNotFoundError
 from tilemaker.providers.core import TileNotFoundError
+
+from tilemaker.analysis.histogram import HistogramProduct
 
 histogram_router = APIRouter(prefix="/histograms", tags=["Histograms"])
 
@@ -61,10 +63,21 @@ def histograms_cmap(cmap: str, request: Request):
     ),
 )
 def histogram_data(layer: str, request: Request) -> HistogramResponse:
-    analysis_id = f"hist-{layer}"
+    try:
+        histogram = HistogramProduct(
+            layer_id=layer,
+            grant=None,
+        )
+    except (TypeError, ValidationError) as e:
+        raise HTTPException(status_code=400, detail=f"Invalid parameters: {e}")
 
     try:
-        resp = request.app.analyses.pull(analysis_id, grants=request.auth.scopes)
+        resp = histogram.build(
+            tiles=request.app.analyses.tiles,
+            metadata=request.app.analyses.metadata,
+            cache=request.app.analyses,
+            grants=request.auth.scopes,
+        )
     except (TileNotFoundError, ProductNotFoundError):
         raise HTTPException(status_code=404, detail="Histogram not found")
 

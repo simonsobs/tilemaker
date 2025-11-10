@@ -3,7 +3,6 @@ from pymemcache.client.base import Client
 
 from .core import AnalysisProvider, ProductNotFoundError
 from .products import AnalysisProduct
-from .types import AnalysisType
 
 
 class InMemoryAnalysisCache(AnalysisProvider):
@@ -34,7 +33,7 @@ class InMemoryAnalysisCache(AnalysisProvider):
         log.debug("analysis.inmemory.pulled")
         return cached
 
-    def push(self, product: AnalysisType):
+    def push(self, product: AnalysisProduct):
         log = self.logger.bind(analysis_id=product.hash)
 
         if product.source == self.internal_provider_id:

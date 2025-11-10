@@ -9,6 +9,7 @@ from fastapi import FastAPI
 from pydantic_settings import BaseSettings
 
 
+
 class Settings(BaseSettings):
     config_path: Path = "config.json"
 
@@ -123,11 +124,28 @@ class Settings(BaseSettings):
         )
 
         if self.precache:
+            # Avoid circular import
+            from tilemaker.analysis.histogram import HistogramProduct
+            
             for layer in app.config.layers:
-                app.analyses.pull(
-                    f"hist-{layer.layer_id}",
-                    grants={layer.grant} if layer.grant is not None else None,
+                histogram = HistogramProduct(
+                    layer_id=layer.layer_id,
+                    grant=layer.grant,
                 )
+
+                try:
+                    histogram.build(
+                        tiles=app.tiles,
+                        metadata=app.config,
+                        cache=app.analyses,
+                        grants=set() if layer.grant is None else {layer.grant},
+                    )
+                except Exception as e:
+                    app.logger.error(
+                        "Failed to precache histogram for layer",
+                        layer_id=layer.layer_id,
+                        error=str(e),
+                    )
 
         return app
 
