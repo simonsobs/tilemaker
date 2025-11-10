@@ -52,7 +52,12 @@ def dev(host: str = "127.0.0.1", port: int = 8000):
 
 
 @APP.command()
-def open(filenames: list[Path], host: str = "127.0.0.1", port: int = 8000, auto_contrast: bool = False):
+def open(
+    filenames: list[Path],
+    host: str = "127.0.0.1",
+    port: int = 8000,
+    auto_contrast: bool = False,
+):
     """
     Start the development/user-hosted server for tilemaker.
     """
@@ -67,7 +72,11 @@ def open(filenames: list[Path], host: str = "127.0.0.1", port: int = 8000, auto_
 
 
 @APP.command()
-def genconfig(filenames: list[Path], output: Path = Path("./generated_config.json"), auto_contrast: bool = False):
+def genconfig(
+    filenames: list[Path],
+    output: Path = Path("./generated_config.json"),
+    auto_contrast: bool = False,
+):
     """
     Start the development/user-hosted server for tilemaker.
     """

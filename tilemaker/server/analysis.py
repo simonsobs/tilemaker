@@ -2,18 +2,14 @@
 Histogram router.
 """
 
-import io
-
-from fastapi import APIRouter, HTTPException, Request, Response
+from astropy.coordinates import SkyCoord
+from astropy.units import Quantity
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, ValidationError
 
 from tilemaker.analysis.aperture import ApertureInformation
-
 from tilemaker.analysis.core import ProductNotFoundError
 from tilemaker.providers.core import TileNotFoundError
-
-from astropy.coordinates import SkyCoord
-from astropy.units import Quantity
 
 analysis_router = APIRouter(prefix="/analysis", tags=["Analysis"])
 
@@ -29,6 +25,7 @@ class ApertureResponse(BaseModel):
     std: float | None = None
     max: float | None = None
     min: float | None = None
+
 
 @analysis_router.get(
     "/aperture/{layer}",

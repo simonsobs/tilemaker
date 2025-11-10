@@ -26,7 +26,9 @@ class AnalysisProvider(ABC):
         self.logger = structlog.get_logger()
 
     @abstractmethod
-    def pull(self, analysis_id: str, grants: set[str]):
+    def pull(
+        self, analysis_id: str, grants: set[str], validate_type: type
+    ) -> "AnalysisProduct":
         return
 
     @abstractmethod
@@ -52,12 +54,16 @@ class Analyses:
         self.tiles = tiles
         self.metadata = metadata
 
-    def pull(self, analysis_id: str, grants: set[str]) -> "AnalysisProduct":
+    def pull(
+        self, analysis_id: str, grants: set[str], validate_type: type
+    ) -> "AnalysisProduct":
         product = None
 
         for provider in self.pullable:
             try:
-                product = provider.pull(analysis_id=analysis_id, grants=grants)
+                product = provider.pull(
+                    analysis_id=analysis_id, grants=grants, validate_type=validate_type
+                )
 
                 if product.grant and product.grant not in grants:
                     raise ProductNotFoundError(f"Product {analysis_id} not found")

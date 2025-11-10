@@ -27,14 +27,16 @@ class HistogramProduct(AnalysisProduct):
     @property
     def hash(self):
         return f"hist-{self.layer_id}"
-    
-    def read(
-        self, cache: AnalysisProvider, grants: set[str]
-    ):
-        return cache.pull(self.hash, grants=grants)
+
+    def read(self, cache: AnalysisProvider, grants: set[str]):
+        return cache.pull(self.hash, grants=grants, validate_type=HistogramProduct)
 
     def build(
-        self, tiles: Tiles, metadata: DataConfiguration, cache: AnalysisProvider, grants: set[str]
+        self,
+        tiles: Tiles,
+        metadata: DataConfiguration,
+        cache: AnalysisProvider,
+        grants: set[str],
     ):
         log = structlog.get_logger()
 
@@ -69,7 +71,6 @@ class HistogramProduct(AnalysisProduct):
             tiles.push(pushable)
             read_tiles.append(tile)
 
-
         vmin = layer.vmin
         vmax = layer.vmax
 
@@ -77,7 +78,9 @@ class HistogramProduct(AnalysisProduct):
         auto_vmax = vmax == "auto"
 
         if auto_vmin or auto_vmax:
-            combined_array = np.hstack((read_tiles[0].data.flatten(), read_tiles[1].data.flatten()))
+            combined_array = np.hstack(
+                (read_tiles[0].data.flatten(), read_tiles[1].data.flatten())
+            )
             combined_array = combined_array[np.isfinite(combined_array)]
             suggested_vmin, suggested_vmax = np.quantile(
                 combined_array,

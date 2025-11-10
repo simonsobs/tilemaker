@@ -7,8 +7,7 @@ from time import perf_counter
 
 import numpy as np
 import structlog
-from astropy.coordinates import SkyCoord, StokesCoord
-from astropy.units import Quantity
+from astropy.coordinates import SkyCoord
 from astropy.wcs import WCS
 
 from tilemaker.metadata.core import DataConfiguration
@@ -82,7 +81,8 @@ def extract(
 
     # The tile grid behaves like a giant image with the same
     # resolution as the base layer, but covering the whole sky.
-    wcs = WCS({
+    wcs = WCS(
+        {
             "NAXIS": 2,
             "CRPIX1": NAXIS1 * 0.5,
             "CRPIX2": NAXIS2 * 0.5 + 0.5,

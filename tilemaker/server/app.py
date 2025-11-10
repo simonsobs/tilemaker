@@ -10,12 +10,12 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from ..settings import settings
+from .analysis import analysis_router
 from .auth import setup_auth
 from .highlights import highlights_router
 from .histogram import histogram_router
 from .maps import maps_router
 from .sources import sources_router
-from .analysis import analysis_router
 
 
 async def lifespan(app: FastAPI):

@@ -10,9 +10,8 @@ from fastapi import APIRouter, HTTPException, Request, Response
 from pydantic import BaseModel, ValidationError
 
 from tilemaker.analysis.core import ProductNotFoundError
-from tilemaker.providers.core import TileNotFoundError
-
 from tilemaker.analysis.histogram import HistogramProduct
+from tilemaker.providers.core import TileNotFoundError
 
 histogram_router = APIRouter(prefix="/histograms", tags=["Histograms"])
 
@@ -82,5 +81,9 @@ def histogram_data(layer: str, request: Request) -> HistogramResponse:
         raise HTTPException(status_code=404, detail="Histogram not found")
 
     return HistogramResponse(
-        edges=resp.edges, histogram=resp.counts, layer_id=resp.layer_id, vmin=resp.vmin, vmax=resp.vmax
+        edges=resp.edges,
+        histogram=resp.counts,
+        layer_id=resp.layer_id,
+        vmin=resp.vmin,
+        vmax=resp.vmax,
     )

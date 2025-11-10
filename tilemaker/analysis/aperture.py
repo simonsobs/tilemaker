@@ -3,17 +3,20 @@ Cumulative information about data in an aperture.
 """
 
 from time import perf_counter
+
+import astropy.units as u
+import numpy as np
+from astropy.coordinates import ICRS
+from astropydantic import AstroPydanticICRS, AstroPydanticQuantity
+from structlog import get_logger
+
 from tilemaker.analysis.core import AnalysisProvider, ProductNotFoundError
+from tilemaker.metadata.core import DataConfiguration
+from tilemaker.processing.extractor import extract
 from tilemaker.providers.core import TileNotFoundError, Tiles
+
 from .products import AnalysisProduct
 
-from tilemaker.metadata.core import DataConfiguration
-from astropydantic import AstroPydanticQuantity, AstroPydanticICRS
-import astropy.units as u
-from astropy.coordinates import ICRS
-import numpy as np
-
-from tilemaker.processing.extractor import extract
 
 class ApertureInformation(AnalysisProduct):
     layer_id: str
@@ -31,15 +34,21 @@ class ApertureInformation(AnalysisProduct):
         ra_deg = f"{self.position.ra.to_value(u.deg):08.4f}"
         dec_deg = f"{self.position.dec.to_value(u.deg):+07.4f}"
         return f"aperture-{self.layer_id}-{ra_deg}-{dec_deg}"
-    
-    def read(
-        self, cache: AnalysisProvider, grants: set[str]
-    ):
-        return cache.pull(self.hash, grants=grants)
+
+    def read(self, cache: AnalysisProvider, grants: set[str]):
+        return cache.pull(self.hash, grants=grants, validate_type=ApertureInformation)
 
     def build(
-        self, tiles: Tiles, metadata: DataConfiguration, cache: AnalysisProvider, grants: set[str]
+        self,
+        tiles: Tiles,
+        metadata: DataConfiguration,
+        cache: AnalysisProvider,
+        grants: set[str],
     ):
+        log = get_logger()
+
+        log = log.bind(analysis_id=self.hash)
+
         try:
             return self.read(cache=cache, grants=grants)
         except ProductNotFoundError:
@@ -48,12 +57,17 @@ class ApertureInformation(AnalysisProduct):
         layer = metadata.layer(layer_id=self.layer_id)
 
         if layer is None:
+            log.debug("aperture.layer_not_found")
             raise TileNotFoundError(f"Layer {self.layer_id} not found")
-        
+
         timing_start = perf_counter()
 
-        top_right = ICRS(ra=self.position.ra + self.radius, dec=self.position.dec + self.radius)
-        bottom_left = ICRS(ra=self.position.ra - self.radius, dec=self.position.dec - self.radius)
+        top_right = ICRS(
+            ra=self.position.ra + self.radius, dec=self.position.dec + self.radius
+        )
+        bottom_left = ICRS(
+            ra=self.position.ra - self.radius, dec=self.position.dec - self.radius
+        )
 
         cutout, push_tiles = extract(
             layer_id=self.layer_id,
@@ -80,8 +94,9 @@ class ApertureInformation(AnalysisProduct):
         data_in_aperture = data_in_aperture[~np.isnan(data_in_aperture)]
 
         if data_in_aperture.size == 0:
+            log.debug("aperture.no_data")
             raise ProductNotFoundError("No data in aperture")
-        
+
         self.mean = float(np.mean(data_in_aperture))
         self.std = float(np.std(data_in_aperture))
         self.max = float(np.max(data_in_aperture))
@@ -95,5 +110,10 @@ class ApertureInformation(AnalysisProduct):
 
         cache.push(self)
 
+        log = log.bind(
+            dt=timing_end - timing_start,
+            n_tiles=len(push_tiles),
+        )
+        log.debug("aperture.built")
+
         return self
-        

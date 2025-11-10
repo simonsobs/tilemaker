@@ -20,7 +20,9 @@ hits = units.def_unit("hits", units.dimensionless_unscaled)
 units.add_enabled_units([hits])
 
 
-def generate(filenames: list[Path], force_auto_contrast: bool = False) -> DataConfiguration:
+def generate(
+    filenames: list[Path], force_auto_contrast: bool = False
+) -> DataConfiguration:
     map_files = [x for x in filenames if "fits" in x.name]
     map_group = map_group_from_fits(map_files, force_auto_contrast=force_auto_contrast)
 
@@ -32,7 +34,8 @@ def filename_to_id(filename: str | Path) -> str:
 
 
 def map_group_from_fits(
-    filenames: list[Path], force_auto_contrast: bool = False,
+    filenames: list[Path],
+    force_auto_contrast: bool = False,
 ):
     maps = []
     for filename in filenames:
@@ -47,7 +50,9 @@ def map_group_from_fits(
                         band_id=f"band-{filename_to_id(filename)}",
                         name="Auto-Populated",
                         description="Auto-populated band",
-                        layers=layers_from_fits(filename=filename, force_auto_contrast=force_auto_contrast),
+                        layers=layers_from_fits(
+                            filename=filename, force_auto_contrast=force_auto_contrast
+                        ),
                     )
                 ],
             )
@@ -106,7 +111,9 @@ def layers_from_fits(
     for i, pl in enumerate(discriminator.proto_layers):
         layer_id = f"{discriminator.hdu}-{i}-" + filename_to_id(filename)
         log = log.bind(layer_id=layer_id)
-        data = pl.convert_data(map_units=map_units, force_auto_contrast=force_auto_contrast)
+        data = pl.convert_data(
+            map_units=map_units, force_auto_contrast=force_auto_contrast
+        )
 
         layers.append(
             Layer(
@@ -135,7 +142,9 @@ class ProtoLayer(BaseModel):
     cmap: str | None = None
     index: int | None = None
 
-    def convert_data(self, map_units: str | None, force_auto_contrast: bool = False) -> dict[str, Any]:
+    def convert_data(
+        self, map_units: str | None, force_auto_contrast: bool = False
+    ) -> dict[str, Any]:
         if map_units != "unk":
             map_units = map_units or self.units
 

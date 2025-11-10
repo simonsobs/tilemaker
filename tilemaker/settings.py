@@ -9,7 +9,6 @@ from fastapi import FastAPI
 from pydantic_settings import BaseSettings
 
 
-
 class Settings(BaseSettings):
     config_path: Path = "config.json"
 
@@ -126,7 +125,7 @@ class Settings(BaseSettings):
         if self.precache:
             # Avoid circular import
             from tilemaker.analysis.histogram import HistogramProduct
-            
+
             for layer in app.config.layers:
                 histogram = HistogramProduct(
                     layer_id=layer.layer_id,
