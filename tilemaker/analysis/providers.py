@@ -3,7 +3,6 @@ from pymemcache.client.base import Client
 
 from .core import AnalysisProvider, ProductNotFoundError
 from .products import AnalysisProduct
-from .types import AnalysisType
 
 
 class InMemoryAnalysisCache(AnalysisProvider):
@@ -17,7 +16,7 @@ class InMemoryAnalysisCache(AnalysisProvider):
         self.cache = LFUCache(maxsize=cache_size)
         super().__init__(internal_provider_id=internal_provider_id)
 
-    def pull(self, analysis_id: str, grants: set[str]):
+    def pull(self, analysis_id: str, grants: set[str], validate_type: type):
         log = self.logger.bind(analysis_id=analysis_id)
 
         cached = self.cache.get(analysis_id, None)
@@ -34,7 +33,7 @@ class InMemoryAnalysisCache(AnalysisProvider):
         log.debug("analysis.inmemory.pulled")
         return cached
 
-    def push(self, product: AnalysisType):
+    def push(self, product: AnalysisProduct):
         log = self.logger.bind(analysis_id=product.hash)
 
         if product.source == self.internal_provider_id:
@@ -58,7 +57,7 @@ class MemcachedAnalysisCache(AnalysisProvider):
             internal_provider_id=internal_provider_id or "memcached-analysis"
         )
 
-    def pull(self, analysis_id: str, grants: set[str]):
+    def pull(self, analysis_id: str, grants: set[str], validate_type: type):
         log = self.logger.bind(analysis_id=analysis_id)
 
         res = self.client.get(analysis_id, None)
@@ -67,7 +66,7 @@ class MemcachedAnalysisCache(AnalysisProvider):
             log.debug("analysis.memcached.miss")
             raise ProductNotFoundError(f"Product {analysis_id} not found in cache")
 
-        res = AnalysisType.model_validate_json(res)
+        res = validate_type.model_validate_json(res)
 
         if res.grant and res.grant not in grants:
             log = log.bind(product_grant=res.grant, user_grants=grants)

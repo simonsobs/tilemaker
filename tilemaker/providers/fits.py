@@ -119,7 +119,7 @@ def extract_array(
             fill_value = 0
         elif np.issubdtype(array_large.dtype, np.bool_):
             fill_value = False
-        
+
     if np.isscalar(shape):
         shape = (shape,)
     if np.isscalar(position):

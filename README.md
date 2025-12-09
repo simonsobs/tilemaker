@@ -47,16 +47,23 @@ Simple Usage
 ------------
 
 To start using tilemaker with your equirectangular maps, you can simply run:
-
 ```
 tilemaker open *.fits
 ```
-
 This will open all of the fits files in your current working directory. If you
 want to improve first-run performance, you can set the environment variable
 `TILEMAKER_PRECACHE=yes` (the default, to turn off set `no`), which will give
 you a longer startup time but will avoid any potential slowdown when paging
 through maps in the viewer.
+
+By default, we will try to figure out reasonable fixed values for the maps you
+provide. You can also run:
+```
+tilemaker open *.fits --auto-contrast
+```
+to set the `vmin` and `vmax` values for your colour map automatically based on
+the 1-99 percentile range (configurable with the environment variable
+`TILEMAKER_ANALYSIS_AUTO_CONTRAST_PERCENTILE=0.01`)
 
 The server will print some things to the terminal as it performs its internal
 startup process. It is ready when you recieve the lines:

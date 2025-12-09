@@ -14,3 +14,5 @@ tilemaker/server/static/*
 *.json
 build/*
 tileviewer
+uv.lock
+.python-version

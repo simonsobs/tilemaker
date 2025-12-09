@@ -47,6 +47,10 @@ class Settings(BaseSettings):
     precache: bool = True
     "Whether or not to pre-cache the histogram for every layer. This will also pre-cache the first layer of tiles."
 
+    # Analysis settings
+    analysis_auto_contrast_percentile: float = 0.01
+    "The percentile to use for auto-contrast setting for vmin and vmax."
+
     class Config:
         env_prefix = "TILEMAKER_"
 
@@ -119,11 +123,28 @@ class Settings(BaseSettings):
         )
 
         if self.precache:
+            # Avoid circular import
+            from tilemaker.analysis.histogram import HistogramProduct
+
             for layer in app.config.layers:
-                app.analyses.pull(
-                    f"hist-{layer.layer_id}",
-                    grants={layer.grant} if layer.grant is not None else None,
+                histogram = HistogramProduct(
+                    layer_id=layer.layer_id,
+                    grant=layer.grant,
                 )
+
+                try:
+                    histogram.build(
+                        tiles=app.tiles,
+                        metadata=app.config,
+                        cache=app.analyses,
+                        grants=set() if layer.grant is None else {layer.grant},
+                    )
+                except Exception as e:
+                    app.logger.error(
+                        "Failed to precache histogram for layer",
+                        layer_id=layer.layer_id,
+                        error=str(e),
+                    )
 
         return app
 

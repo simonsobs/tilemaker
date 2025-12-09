@@ -12,8 +12,6 @@ from tilemaker.analysis.products import AnalysisProduct
 from tilemaker.metadata.core import DataConfiguration
 from tilemaker.providers.core import Tiles
 
-from .types import SLUG_TO_TYPE
-
 
 class ProductNotFoundError(Exception):
     pass
@@ -28,7 +26,9 @@ class AnalysisProvider(ABC):
         self.logger = structlog.get_logger()
 
     @abstractmethod
-    def pull(self, analysis_id: str, grants: set[str]):
+    def pull(
+        self, analysis_id: str, grants: set[str], validate_type: type
+    ) -> "AnalysisProduct":
         return
 
     @abstractmethod
@@ -54,27 +54,24 @@ class Analyses:
         self.tiles = tiles
         self.metadata = metadata
 
-    def pull(self, analysis_id: str, grants: set[str]) -> "AnalysisProduct":
+    def pull(
+        self, analysis_id: str, grants: set[str], validate_type: type
+    ) -> "AnalysisProduct":
+        product = None
+
         for provider in self.pullable:
             try:
-                product = provider.pull(analysis_id=analysis_id, grants=grants)
+                product = provider.pull(
+                    analysis_id=analysis_id, grants=grants, validate_type=validate_type
+                )
 
                 if product.grant and product.grant not in grants:
                     raise ProductNotFoundError(f"Product {analysis_id} not found")
             except ProductNotFoundError:
                 continue
 
-        # We couldn't find it. Try building it?
-        for slug, analysis_type in SLUG_TO_TYPE.items():
-            if slug in analysis_id:
-                product = analysis_type.build(
-                    tiles=self.tiles, metadata=self.metadata, analysis_id=analysis_id
-                )
-
-                self.push(product)
-
-            if product.grant and product.grant not in grants:
-                raise ProductNotFoundError(f"Product {analysis_id} not found")
+        if product is None:
+            raise ProductNotFoundError(f"Product {analysis_id} not found")
 
         return product
 

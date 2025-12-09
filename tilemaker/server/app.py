@@ -10,6 +10,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from ..settings import settings
+from .analysis import analysis_router
 from .auth import setup_auth
 from .highlights import highlights_router
 from .histogram import histogram_router
@@ -61,6 +62,7 @@ app.include_router(highlights_router)
 app.include_router(histogram_router)
 app.include_router(sources_router)
 app.include_router(maps_router)
+app.include_router(analysis_router)
 
 if settings.serve_frontend:
     # The index.html is actually in static. But if anyone wants to access it
