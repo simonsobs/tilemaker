@@ -81,7 +81,9 @@ class LayerORM(Base):
     name = Column(String, nullable=False)
     description = Column(String)
     grant = Column(String)
-    band_id = Column(Integer, ForeignKey("bands.id", ondelete="CASCADE"), nullable=False)
+    band_id = Column(
+        Integer, ForeignKey("bands.id", ondelete="CASCADE"), nullable=False
+    )
 
     quantity = Column(String)
     units = Column(String)

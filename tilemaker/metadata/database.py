@@ -13,6 +13,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from .boxes import Box
+from .core import DataConfiguration
 from .definitions import (
     Band,
     Layer,
@@ -21,8 +22,8 @@ from .definitions import (
 )
 from .fits import FITSLayerProvider
 from .orm import (
-    Base,
     BandORM,
+    Base,
     BoxORM,
     LayerORM,
     MapGroupORM,
@@ -31,7 +32,6 @@ from .orm import (
     SourceORM,
 )
 from .sources import Source, SourceGroup
-from .core import DataConfiguration
 
 
 class DatabaseDataConfiguration:
@@ -203,7 +203,7 @@ class DatabaseDataConfiguration:
         vmin = orm_layer.vmin
         if vmin is not None and vmin != "auto":
             vmin = float(vmin)
-        
+
         vmax = orm_layer.vmax
         if vmax is not None and vmax != "auto":
             vmax = float(vmax)
@@ -273,7 +273,9 @@ class DatabaseDataConfiguration:
         with self.session_maker() as session:
             # Populate map groups, maps, bands, and layers without duplicating existing rows
             for map_group in config.map_groups:
-                orm_group = session.query(MapGroupORM).filter_by(name=map_group.name).first()
+                orm_group = (
+                    session.query(MapGroupORM).filter_by(name=map_group.name).first()
+                )
                 if orm_group is None:
                     orm_group = MapGroupORM(
                         name=map_group.name,
@@ -309,7 +311,10 @@ class DatabaseDataConfiguration:
                     for band in map.bands:
                         orm_band = (
                             session.query(BandORM)
-                            .filter(BandORM.band_id == band.band_id, BandORM.map_id == orm_map.id)
+                            .filter(
+                                BandORM.band_id == band.band_id,
+                                BandORM.map_id == orm_map.id,
+                            )
                             .first()
                         )
 
@@ -430,7 +435,9 @@ class DatabaseDataConfiguration:
                     session.flush()
 
                 # Replace sources for this group to avoid duplication
-                session.query(SourceORM).filter_by(source_group_id=orm_source_group.id).delete(synchronize_session=False)
+                session.query(SourceORM).filter_by(
+                    source_group_id=orm_source_group.id
+                ).delete(synchronize_session=False)
 
                 if source_group.sources:
                     for source in source_group.sources:
@@ -475,7 +482,9 @@ def main():
     database_configuration = settings.parse_config()
 
     if not isinstance(database_configuration, DatabaseDataConfiguration):
-        print("This CLI only works with database-backed configurations loaded via settings.")
+        print(
+            "This CLI only works with database-backed configurations loaded via settings."
+        )
         return
 
     parser = ap.ArgumentParser(description="Tilemaker database management CLI")
@@ -496,10 +505,14 @@ def main():
         choices=["group", "map", "band", "layer", "box", "source_group", "source"],
     )
 
-    bands_parser = subparsers.add_parser("bands", help="List all bands for a specific map")
+    bands_parser = subparsers.add_parser(
+        "bands", help="List all bands for a specific map"
+    )
     bands_parser.add_argument("map_id", help="The map ID")
 
-    layers_parser = subparsers.add_parser("layers", help="List all layers for a specific map")
+    layers_parser = subparsers.add_parser(
+        "layers", help="List all layers for a specific map"
+    )
     layers_parser.add_argument("map_id", help="The map ID")
 
     delete_parser = subparsers.add_parser(
@@ -545,8 +558,8 @@ def main():
                     for b in m.bands:
                         print(b.band_id, b.name)
         elif args.entity == "layer":
-            for l in database_configuration.layers:
-                print(l.layer_id, l.name)
+            for layer in database_configuration.layers:
+                print(layer.layer_id, layer.name)
         elif args.entity == "box":
             for b in database_configuration.boxes:
                 print(b.name)
@@ -579,8 +592,8 @@ def main():
                 if m.map_id == args.map_id:
                     found = True
                     for b in m.bands:
-                        for l in b.layers:
-                            print(l.layer_id, l.name)
+                        for layer in b.layers:
+                            print(layer.layer_id, layer.name)
         if not found:
             print(f"Map {args.map_id} not found")
 
@@ -610,7 +623,7 @@ def main():
         else:
             print(args.entity, args.identifier, "not found")
         return
-    
+
     if args.command == "details":
         print(f"Map groups: {len(database_configuration.map_groups)}")
         print(f"Maps: {sum(len(g.maps) for g in database_configuration.map_groups)}")
@@ -620,5 +633,3 @@ def main():
         print(f"Source groups: {len(sg)}")
         print(f"Sources: {sum(len(x.sources or []) for x in sg)}")
         return
-    
-

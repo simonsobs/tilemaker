@@ -154,7 +154,7 @@ class Settings(BaseSettings):
 
         if "sqlite://" in str(self.config_path):
             return DatabaseDataConfiguration(database_url=self.config_path)
-        
+
         return parse_config(Path(self.config_path))
 
 
