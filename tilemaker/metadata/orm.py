@@ -25,7 +25,12 @@ class MapGroupORM(Base):
     description = Column(String)
     grant = Column(String)
 
-    maps = relationship("MapORM", back_populates="map_group")
+    maps = relationship(
+        "MapORM",
+        back_populates="map_group",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
 
 
 class MapORM(Base):
@@ -36,10 +41,17 @@ class MapORM(Base):
     name = Column(String, nullable=False)
     description = Column(String)
     grant = Column(String)
-    map_group_id = Column(Integer, ForeignKey("map_groups.id"), nullable=False)
+    map_group_id = Column(
+        Integer, ForeignKey("map_groups.id", ondelete="CASCADE"), nullable=False
+    )
 
     map_group = relationship("MapGroupORM", back_populates="maps")
-    bands = relationship("BandORM", back_populates="map")
+    bands = relationship(
+        "BandORM",
+        back_populates="map",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
 
 
 class BandORM(Base):
@@ -50,10 +62,15 @@ class BandORM(Base):
     name = Column(String, nullable=False)
     description = Column(String)
     grant = Column(String)
-    map_id = Column(Integer, ForeignKey("maps.id"), nullable=False)
+    map_id = Column(Integer, ForeignKey("maps.id", ondelete="CASCADE"), nullable=False)
 
     map = relationship("MapORM", back_populates="bands")
-    layers = relationship("LayerORM", back_populates="band")
+    layers = relationship(
+        "LayerORM",
+        back_populates="band",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
 
 
 class LayerORM(Base):
@@ -64,7 +81,7 @@ class LayerORM(Base):
     name = Column(String, nullable=False)
     description = Column(String)
     grant = Column(String)
-    band_id = Column(Integer, ForeignKey("bands.id"), nullable=False)
+    band_id = Column(Integer, ForeignKey("bands.id", ondelete="CASCADE"), nullable=False)
 
     quantity = Column(String)
     units = Column(String)
@@ -110,7 +127,12 @@ class SourceGroupORM(Base):
     description = Column(String)
     grant = Column(String)
 
-    sources = relationship("SourceORM", back_populates="source_group")
+    sources = relationship(
+        "SourceORM",
+        back_populates="source_group",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
 
 
 class SourceORM(Base):
@@ -121,6 +143,8 @@ class SourceORM(Base):
     ra = Column(Float, nullable=False)
     dec = Column(Float, nullable=False)
     extra = Column(JSON)
-    source_group_id = Column(Integer, ForeignKey("source_groups.id"), nullable=False)
+    source_group_id = Column(
+        Integer, ForeignKey("source_groups.id", ondelete="CASCADE"), nullable=False
+    )
 
     source_group = relationship("SourceGroupORM", back_populates="sources")

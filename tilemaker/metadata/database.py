@@ -1,5 +1,8 @@
 """
-A database-backed implementation of the DataConfiguration object.
+A database-backed implementation of the DataConfiguration object. Used in produciton
+when you need to be able to dynamically update the available maps. Comes along
+with tools to populate the database from a static configuration file and delete
+entries as needed.
 """
 
 import itertools
@@ -108,6 +111,50 @@ class DatabaseDataConfiguration:
             if orm_group is None:
                 return None
             return self._orm_to_source_group(session, orm_group)
+
+    # Deletion methods
+    def delete_layer(self, layer_id: str) -> bool:
+        """Delete a layer by its ID."""
+        with self.session_maker() as session:
+            orm_layer = session.query(LayerORM).filter_by(layer_id=layer_id).first()
+            if orm_layer is None:
+                return False
+            session.delete(orm_layer)
+            session.commit()
+            return True
+
+    def delete_band(self, band_id: str, map_id: str | None = None) -> bool:
+        """Delete a band by band_id (optionally scoping by map_id to disambiguate)."""
+        with self.session_maker() as session:
+            query = session.query(BandORM).filter_by(band_id=band_id)
+            if map_id is not None:
+                query = query.join(MapORM).filter(MapORM.map_id == map_id)
+            orm_band = query.first()
+            if orm_band is None:
+                return False
+            session.delete(orm_band)
+            session.commit()
+            return True
+
+    def delete_map(self, map_id: str) -> bool:
+        """Delete a map by its map_id."""
+        with self.session_maker() as session:
+            orm_map = session.query(MapORM).filter_by(map_id=map_id).first()
+            if orm_map is None:
+                return False
+            session.delete(orm_map)
+            session.commit()
+            return True
+
+    def delete_map_group(self, name: str) -> bool:
+        """Delete a map group by its name."""
+        with self.session_maker() as session:
+            orm_group = session.query(MapGroupORM).filter_by(name=name).first()
+            if orm_group is None:
+                return False
+            session.delete(orm_group)
+            session.commit()
+            return True
 
     # Conversion methods
     def _orm_to_box(self, orm_box: BoxORM) -> Box:
@@ -224,93 +271,166 @@ class DatabaseDataConfiguration:
         from pydantic import TypeAdapter
 
         with self.session_maker() as session:
-            # Populate map groups, maps, bands, and layers
+            # Populate map groups, maps, bands, and layers without duplicating existing rows
             for map_group in config.map_groups:
-                orm_group = MapGroupORM(
-                    name=map_group.name,
-                    description=map_group.description,
-                    grant=map_group.grant,
-                )
-                session.add(orm_group)
-                session.flush()  # Flush to get the group ID
-
-                for map in map_group.maps:
-                    orm_map = MapORM(
-                        map_id=map.map_id,
-                        name=map.name,
-                        description=map.description,
-                        grant=map.grant,
-                        map_group_id=orm_group.id,
+                orm_group = session.query(MapGroupORM).filter_by(name=map_group.name).first()
+                if orm_group is None:
+                    orm_group = MapGroupORM(
+                        name=map_group.name,
+                        description=map_group.description,
+                        grant=map_group.grant,
                     )
-                    session.add(orm_map)
+                    session.add(orm_group)
+                    session.flush()
+                else:
+                    orm_group.description = map_group.description
+                    orm_group.grant = map_group.grant
                     session.flush()
 
-                    for band in map.bands:
-                        orm_band = BandORM(
-                            band_id=band.band_id,
-                            name=band.name,
-                            description=band.description,
-                            grant=band.grant,
-                            map_id=orm_map.id,
+                for map in map_group.maps:
+                    orm_map = session.query(MapORM).filter_by(map_id=map.map_id).first()
+                    if orm_map is None:
+                        orm_map = MapORM(
+                            map_id=map.map_id,
+                            name=map.name,
+                            description=map.description,
+                            grant=map.grant,
+                            map_group_id=orm_group.id,
                         )
-                        session.add(orm_band)
+                        session.add(orm_map)
+                        session.flush()
+                    else:
+                        orm_map.name = map.name
+                        orm_map.description = map.description
+                        orm_map.grant = map.grant
+                        orm_map.map_group_id = orm_group.id
                         session.flush()
 
+                    for band in map.bands:
+                        orm_band = (
+                            session.query(BandORM)
+                            .filter(BandORM.band_id == band.band_id, BandORM.map_id == orm_map.id)
+                            .first()
+                        )
+
+                        if orm_band is None:
+                            orm_band = BandORM(
+                                band_id=band.band_id,
+                                name=band.name,
+                                description=band.description,
+                                grant=band.grant,
+                                map_id=orm_map.id,
+                            )
+                            session.add(orm_band)
+                            session.flush()
+                        else:
+                            orm_band.name = band.name
+                            orm_band.description = band.description
+                            orm_band.grant = band.grant
+                            orm_band.map_id = orm_map.id
+                            session.flush()
+
                         for layer in band.layers:
-                            # Serialize provider to JSON
                             provider_adapter = TypeAdapter(type(layer.provider))
                             provider_dict = provider_adapter.dump_python(
                                 layer.provider, mode="json"
                             )
 
-                            # Convert vmin/vmax to string for storage
                             vmin_str = None if layer.vmin is None else str(layer.vmin)
                             vmax_str = None if layer.vmax is None else str(layer.vmax)
 
-                            orm_layer = LayerORM(
-                                layer_id=layer.layer_id,
-                                name=layer.name,
-                                description=layer.description,
-                                grant=layer.grant,
-                                band_id=orm_band.id,
-                                quantity=layer.quantity,
-                                units=layer.units,
-                                number_of_levels=layer.number_of_levels,
-                                tile_size=layer.tile_size,
-                                vmin=vmin_str,
-                                vmax=vmax_str,
-                                cmap=layer.cmap,
-                                provider=provider_dict,
-                                bounding_left=layer.bounding_left,
-                                bounding_right=layer.bounding_right,
-                                bounding_top=layer.bounding_top,
-                                bounding_bottom=layer.bounding_bottom,
+                            orm_layer = (
+                                session.query(LayerORM)
+                                .filter_by(layer_id=layer.layer_id)
+                                .first()
                             )
-                            session.add(orm_layer)
 
-            # Populate boxes
+                            if orm_layer is None:
+                                orm_layer = LayerORM(
+                                    layer_id=layer.layer_id,
+                                    name=layer.name,
+                                    description=layer.description,
+                                    grant=layer.grant,
+                                    band_id=orm_band.id,
+                                    quantity=layer.quantity,
+                                    units=layer.units,
+                                    number_of_levels=layer.number_of_levels,
+                                    tile_size=layer.tile_size,
+                                    vmin=vmin_str,
+                                    vmax=vmax_str,
+                                    cmap=layer.cmap,
+                                    provider=provider_dict,
+                                    bounding_left=layer.bounding_left,
+                                    bounding_right=layer.bounding_right,
+                                    bounding_top=layer.bounding_top,
+                                    bounding_bottom=layer.bounding_bottom,
+                                )
+                                session.add(orm_layer)
+                            else:
+                                orm_layer.name = layer.name
+                                orm_layer.description = layer.description
+                                orm_layer.grant = layer.grant
+                                orm_layer.band_id = orm_band.id
+                                orm_layer.quantity = layer.quantity
+                                orm_layer.units = layer.units
+                                orm_layer.number_of_levels = layer.number_of_levels
+                                orm_layer.tile_size = layer.tile_size
+                                orm_layer.vmin = vmin_str
+                                orm_layer.vmax = vmax_str
+                                orm_layer.cmap = layer.cmap
+                                orm_layer.provider = provider_dict
+                                orm_layer.bounding_left = layer.bounding_left
+                                orm_layer.bounding_right = layer.bounding_right
+                                orm_layer.bounding_top = layer.bounding_top
+                                orm_layer.bounding_bottom = layer.bounding_bottom
+
+            # Populate boxes without duplicates (keyed by name)
             for box in config.boxes:
-                orm_box = BoxORM(
-                    name=box.name,
-                    description=box.description,
-                    top_left_ra=box.top_left_ra,
-                    top_left_dec=box.top_left_dec,
-                    bottom_right_ra=box.bottom_right_ra,
-                    bottom_right_dec=box.bottom_right_dec,
-                    grant=box.grant,
-                )
-                session.add(orm_box)
+                orm_box = session.query(BoxORM).filter_by(name=box.name).first()
+                if orm_box is None:
+                    orm_box = BoxORM(
+                        name=box.name,
+                        description=box.description,
+                        top_left_ra=box.top_left_ra,
+                        top_left_dec=box.top_left_dec,
+                        bottom_right_ra=box.bottom_right_ra,
+                        bottom_right_dec=box.bottom_right_dec,
+                        grant=box.grant,
+                    )
+                    session.add(orm_box)
+                else:
+                    orm_box.description = box.description
+                    orm_box.top_left_ra = box.top_left_ra
+                    orm_box.top_left_dec = box.top_left_dec
+                    orm_box.bottom_right_ra = box.bottom_right_ra
+                    orm_box.bottom_right_dec = box.bottom_right_dec
+                    orm_box.grant = box.grant
 
-            # Populate source groups and sources
+            # Populate source groups and sources without duplicates
             for source_group in config.source_groups:
-                orm_source_group = SourceGroupORM(
-                    source_group_id=source_group.source_group_id,
-                    name=source_group.name,
-                    description=source_group.description,
-                    grant=source_group.grant,
+                orm_source_group = (
+                    session.query(SourceGroupORM)
+                    .filter_by(source_group_id=source_group.source_group_id)
+                    .first()
                 )
-                session.add(orm_source_group)
-                session.flush()
+
+                if orm_source_group is None:
+                    orm_source_group = SourceGroupORM(
+                        source_group_id=source_group.source_group_id,
+                        name=source_group.name,
+                        description=source_group.description,
+                        grant=source_group.grant,
+                    )
+                    session.add(orm_source_group)
+                    session.flush()
+                else:
+                    orm_source_group.name = source_group.name
+                    orm_source_group.description = source_group.description
+                    orm_source_group.grant = source_group.grant
+                    session.flush()
+
+                # Replace sources for this group to avoid duplication
+                session.query(SourceORM).filter_by(source_group_id=orm_source_group.id).delete(synchronize_session=False)
 
                 if source_group.sources:
                     for source in source_group.sources:
@@ -325,3 +445,180 @@ class DatabaseDataConfiguration:
 
             session.commit()
             self.log.info("database.populated_from_config")
+
+
+def main():
+    """
+    Run the CLI wrapper to help with managing the databases. There are a number of
+    commands:
+
+    tilemaker-db {group,map,layer,band,source_group,box,source} delete <id>
+        Delete an entry from the database by its ID.
+
+    tilemaker-db {group,map,layer,band,source_group,box,source} list
+        List all entries of a given type in the database.
+
+    tilemaker-db populate <config.json>
+        Populate the database from a static configuration file.
+
+    tilemaker-db details
+        Show summary details about the database contents.
+
+    Note that the database configuration details are as specified in your
+    tilemaker central configuration.
+    """
+    import argparse as ap
+    from pathlib import Path
+
+    from tilemaker.settings import settings
+
+    database_configuration = settings.parse_config()
+
+    if not isinstance(database_configuration, DatabaseDataConfiguration):
+        print("This CLI only works with database-backed configurations loaded via settings.")
+        return
+
+    parser = ap.ArgumentParser(description="Tilemaker database management CLI")
+
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    populate_parser = subparsers.add_parser(
+        "populate", help="Populate the database from a static config JSON file"
+    )
+    populate_parser.add_argument(
+        "config",
+        help="Path to the JSON configuration file (same schema as static config)",
+    )
+
+    list_parser = subparsers.add_parser("list", help="List entries of a given type")
+    list_parser.add_argument(
+        "entity",
+        choices=["group", "map", "band", "layer", "box", "source_group", "source"],
+    )
+
+    bands_parser = subparsers.add_parser("bands", help="List all bands for a specific map")
+    bands_parser.add_argument("map_id", help="The map ID")
+
+    layers_parser = subparsers.add_parser("layers", help="List all layers for a specific map")
+    layers_parser.add_argument("map_id", help="The map ID")
+
+    delete_parser = subparsers.add_parser(
+        "delete", help="Delete an entry of a given type by identifier"
+    )
+    delete_parser.add_argument(
+        "entity",
+        choices=["group", "map", "band", "layer", "source_group"],
+        help="Entity type to delete. Boxes/sources require manual handling.",
+    )
+    delete_parser.add_argument("identifier", help="Identifier (e.g., layer_id, map_id)")
+    delete_parser.add_argument(
+        "--map-id",
+        help="Map ID to disambiguate band deletes (optional)",
+    )
+
+    subparsers.add_parser(
+        "details", help="Show summary details about the database contents"
+    )
+
+    args = parser.parse_args()
+
+    if args.command == "populate":
+        database_configuration.create_tables()
+        # Load static config file as DataConfiguration for ingestion
+        cfg_json = Path(args.config).read_text()
+        ingest_cfg = DataConfiguration.model_validate_json(cfg_json)
+        database_configuration.populate_from_config(ingest_cfg)
+        print("Database populated from config")
+        return
+
+    if args.command == "list":
+        if args.entity == "group":
+            for g in database_configuration.map_groups:
+                print(g.name)
+        elif args.entity == "map":
+            for g in database_configuration.map_groups:
+                for m in g.maps:
+                    print(m.map_id, m.name)
+        elif args.entity == "band":
+            for g in database_configuration.map_groups:
+                for m in g.maps:
+                    for b in m.bands:
+                        print(b.band_id, b.name)
+        elif args.entity == "layer":
+            for l in database_configuration.layers:
+                print(l.layer_id, l.name)
+        elif args.entity == "box":
+            for b in database_configuration.boxes:
+                print(b.name)
+        elif args.entity == "source_group":
+            for sg in database_configuration.source_groups:
+                print(sg.source_group_id)
+        elif args.entity == "source":
+            for sg in database_configuration.source_groups:
+                if sg.sources:
+                    for s in sg.sources:
+                        print(f"{sg.source_group_id}:{s.name}")
+        return
+
+    if args.command == "bands":
+        found = False
+        for g in database_configuration.map_groups:
+            for m in g.maps:
+                if m.map_id == args.map_id:
+                    found = True
+                    for b in m.bands:
+                        print(b.band_id, b.name)
+        if not found:
+            print(f"Map {args.map_id} not found")
+        return
+
+    if args.command == "layers":
+        found = False
+        for g in database_configuration.map_groups:
+            for m in g.maps:
+                if m.map_id == args.map_id:
+                    found = True
+                    for b in m.bands:
+                        for l in b.layers:
+                            print(l.layer_id, l.name)
+        if not found:
+            print(f"Map {args.map_id} not found")
+
+    if args.command == "delete":
+        ok = False
+        if args.entity == "layer":
+            ok = database_configuration.delete_layer(args.identifier)
+        elif args.entity == "band":
+            ok = database_configuration.delete_band(args.identifier, map_id=args.map_id)
+        elif args.entity == "map":
+            ok = database_configuration.delete_map(args.identifier)
+        elif args.entity == "group":
+            ok = database_configuration.delete_map_group(args.identifier)
+        elif args.entity == "source_group":
+            with database_configuration.session_maker() as session:
+                orm_sg = (
+                    session.query(SourceGroupORM)
+                    .filter_by(source_group_id=args.identifier)
+                    .first()
+                )
+                if orm_sg:
+                    session.delete(orm_sg)
+                    session.commit()
+                    ok = True
+        if ok:
+            print("Deleted", args.entity, args.identifier)
+        else:
+            print(args.entity, args.identifier, "not found")
+        return
+    
+    if args.command == "details":
+        print(f"Map groups: {len(database_configuration.map_groups)}")
+        print(f"Maps: {sum(len(g.maps) for g in database_configuration.map_groups)}")
+        print(f"Layers: {sum(1 for _ in database_configuration.layers)}")
+        print(f"Boxes: {len(database_configuration.boxes)}")
+        sg = database_configuration.source_groups
+        print(f"Source groups: {len(sg)}")
+        print(f"Sources: {sum(len(x.sources or []) for x in sg)}")
+        return
+    
+
