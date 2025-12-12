@@ -477,6 +477,45 @@ e.g. show a specific survey patch.
 ]
 ```
 
+### Using a Database For Configuration
+
+In some cases, you may wish to use a database instead of a configuration file for your
+main configuration provider. This would be in cases where, for example, you need to 
+periodically update your configuration without restarting the server, such as a 
+production service. We provide integration with SQLite to manage your tilemaker
+configuration, and a command-line tool to view the contents and delete items from the
+database.
+
+To use the database, you simply need to set the configuration file location to
+one including the `sqlite://` prefix. For example:
+```
+export TILEMAKER_CONFIG_PATH="sqlite:///database.db"
+```
+With this enabled, the CLI tool `tilemaker-db` will be available. You can then
+ingest any existing config file:
+```
+tilemaker-db populate config.json
+```
+If you have a partially populated database, the `tilemaker-db populate` upserts
+it to only add the new information and not duplicates. You can view the contents
+of your database using the `tilemaker-db list` command, which supports
+`group`, `map`, `band`, `layer`, `box`, `source_group`, and `source`:
+```
+tilemaker-db list band
+>>> band-d7fc6c Auto-Populated
+>>> band-bffafd Auto-Populated
+>>> band-29317f Auto-Populated
+>>> band-893cba Auto-Populated
+>>> band-e36ce0 Auto-Populated
+>>> band-dd8b6f Auto-Populated
+```
+You can delete each of these items too, by their unique identifier (the first
+column):
+```
+tilemaker-db delete band band-d7fc6c
+```
+Any and all changes will be reflected on refresh of the map viewer client.
+
 Map Viewer
 ----------
 

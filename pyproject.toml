@@ -32,6 +32,7 @@ dependencies = [
 
 [project.scripts]
 tilemaker = "tilemaker.client.cli:main"
+tilemaker-db = "tilemaker.metadata.database:main"
 
 [tool.ruff.lint]
 extend-select = ["I"]

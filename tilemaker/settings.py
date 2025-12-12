@@ -10,7 +10,7 @@ from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    config_path: Path = "config.json"
+    config_path: str | Path = "config.json"
 
     origins: list[str] | None = ["*"]
     add_cors: bool = True
@@ -150,8 +150,12 @@ class Settings(BaseSettings):
 
     def parse_config(self):
         from tilemaker.metadata.core import parse_config
+        from tilemaker.metadata.database import DatabaseDataConfiguration
 
-        return parse_config(self.config_path)
+        if "sqlite://" in str(self.config_path):
+            return DatabaseDataConfiguration(database_url=self.config_path)
+
+        return parse_config(Path(self.config_path))
 
 
 settings = Settings()
