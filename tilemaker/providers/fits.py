@@ -15,8 +15,8 @@ from astropy.wcs import WCS
 from astropy.wcs.utils import proj_plane_pixel_scales, skycoord_to_pixel
 from structlog.types import FilteringBoundLogger
 
-from tilemaker.metadata.definitions import  MapGroup
-from tilemaker.metadata.fits import FITSLayerProvider, FITSCombinationLayerProdiver
+from tilemaker.metadata.definitions import MapGroup
+from tilemaker.metadata.fits import FITSLayerProvider
 
 from .core import PullableTile, PushableTile, TileNotFoundError, TileProvider
 
@@ -367,6 +367,7 @@ class FITSCombinationTileProvider(TileProvider):
     A tile provider that combines multiple FITS layers into one.
     Currently unimplemented.
     """
+
     layers: dict[int, FITSLayerProvider]
     subsample: bool
 
@@ -392,23 +393,23 @@ class FITSCombinationTileProvider(TileProvider):
         super().__init__(internal_provider_id=internal_provider_id)
 
     def _get_tile_info(self, tile: PullableTile):
-            RA_OFFSET = -180.0
-            RA_RANGE = 2.0 * 180.0
-            DEC_OFFSET = -0.5 * 180.0
-            DEC_RANGE = 180.0
+        RA_OFFSET = -180.0
+        RA_RANGE = 2.0 * 180.0
+        DEC_OFFSET = -0.5 * 180.0
+        DEC_RANGE = 180.0
 
-            ra_per_tile = RA_RANGE / 2 ** (tile.level + 1)
-            dec_per_tile = DEC_RANGE / 2 ** (tile.level)
+        ra_per_tile = RA_RANGE / 2 ** (tile.level + 1)
+        dec_per_tile = DEC_RANGE / 2 ** (tile.level)
 
-            def pix(v, w):
-                return ((ra_per_tile * v + RA_OFFSET), (dec_per_tile * w + DEC_OFFSET))
+        def pix(v, w):
+            return ((ra_per_tile * v + RA_OFFSET), (dec_per_tile * w + DEC_OFFSET))
 
-            bottom_left = pix(tile.x, tile.y)
-            top_right = pix(tile.x + 1, tile.y + 1)
+        bottom_left = pix(tile.x, tile.y)
+        top_right = pix(tile.x + 1, tile.y + 1)
 
-            return {
-                "ra_range": [bottom_left[0], top_right[0]],
-                "dec_range": [bottom_left[1], top_right[1]],
+        return {
+            "ra_range": [bottom_left[0], top_right[0]],
+            "dec_range": [bottom_left[1], top_right[1]],
         }
 
     def pull(self, tile: PullableTile):
@@ -429,7 +430,7 @@ class FITSCombinationTileProvider(TileProvider):
         subsample_every = 2 ** (level_difference)
 
         arrays = []
-        
+
         for provider in layer.provider.providers:
             with fits.open(provider.filename) as h:
                 hdu = h[provider.hdu]

@@ -20,7 +20,7 @@ from .definitions import (
     Map,
     MapGroup,
 )
-from .fits import FITSLayerProvider, FITSCombinationLayerProdiver
+from .fits import FITSCombinationLayerProdiver, FITSLayerProvider
 from .orm import (
     BandORM,
     Base,

@@ -3,11 +3,11 @@ FITS-based layer provider implementation.
 """
 
 import math
-import numpy as np
 from functools import reduce
 from pathlib import Path
 from typing import Literal
 
+import numpy as np
 from astropy import units
 from astropy.io import fits
 from astropy.wcs import WCS
@@ -176,7 +176,7 @@ class FITSCombinationLayerProdiver(LayerProvider):
         """Chain the arrays together using the specified function."""
         if not arrays:
             raise ValueError("No arrays provided for combination.")
-        
+
         if all(x is None for x in arrays):
             return None
 
