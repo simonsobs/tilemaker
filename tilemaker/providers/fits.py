@@ -16,7 +16,7 @@ from astropy.wcs.utils import proj_plane_pixel_scales, skycoord_to_pixel
 from structlog.types import FilteringBoundLogger
 
 from tilemaker.metadata.definitions import MapGroup
-from tilemaker.metadata.fits import FITSLayerProvider
+from tilemaker.metadata.fits import FITSCombinationLayerProvider, FITSLayerProvider
 
 from .core import PullableTile, PushableTile, TileNotFoundError, TileProvider
 
@@ -276,7 +276,7 @@ def extract_patch_from_fits(
 
 
 class FITSTileProvider(TileProvider):
-    layers: dict[int, FITSLayerProvider]
+    layers: dict[int, FITSLayerProvider | FITSCombinationLayerProvider]
     subsample: bool
 
     def __init__(
@@ -288,7 +288,9 @@ class FITSTileProvider(TileProvider):
         self.layers = {
             x.layer_id: x
             for x in filter(
-                lambda x: isinstance(x.provider, FITSLayerProvider),
+                lambda x: isinstance(
+                    x.provider, FITSLayerProvider | FITSCombinationLayerProvider
+                ),
                 chain.from_iterable(
                     band.layers
                     for map_group in map_groups
@@ -337,16 +339,35 @@ class FITSTileProvider(TileProvider):
 
         subsample_every = 2 ** (level_difference)
 
-        with fits.open(layer.provider.filename) as h:
-            hdu = h[layer.provider.hdu]
+        if isinstance(layer.provider, FITSCombinationLayerProvider):
+            arrays = []
 
-            patch = extract_patch_from_fits(
-                hdu=hdu,
-                **self._get_tile_info(tile=tile),
-                index=layer.provider.index,
-                subsample_every=subsample_every,
-                log=log,
-            )
+            for provider in layer.provider.providers:
+                with fits.open(provider.filename) as h:
+                    hdu = h[provider.hdu]
+
+                    patch = extract_patch_from_fits(
+                        hdu=hdu,
+                        **self._get_tile_info(tile=tile),
+                        index=provider.index,
+                        subsample_every=subsample_every,
+                        log=log,
+                    )
+
+                    arrays.append(patch)
+
+            patch = layer.provider.chain(arrays)
+        else:
+            with fits.open(layer.provider.filename) as h:
+                hdu = h[layer.provider.hdu]
+
+                patch = extract_patch_from_fits(
+                    hdu=hdu,
+                    **self._get_tile_info(tile=tile),
+                    index=layer.provider.index,
+                    subsample_every=subsample_every,
+                    log=log,
+                )
 
         return PushableTile(
             layer_id=tile.layer_id,
@@ -355,105 +376,6 @@ class FITSTileProvider(TileProvider):
             level=tile.level,
             grant=layer.grant,
             data=patch,
-            source=self.internal_provider_id,
-        )
-
-    def push(self, tile: PushableTile):
-        return
-
-
-class FITSCombinationTileProvider(TileProvider):
-    """
-    A tile provider that combines multiple FITS layers into one.
-    Currently unimplemented.
-    """
-
-    layers: dict[int, FITSLayerProvider]
-    subsample: bool
-
-    def __init__(
-        self,
-        map_groups: list[MapGroup],
-        subsample: bool = True,
-        internal_provider_id: str | None = None,
-    ):
-        self.layers = {
-            x.layer_id: x
-            for x in filter(
-                lambda x: isinstance(x.provider, FITSLayerProvider),
-                chain.from_iterable(
-                    band.layers
-                    for map_group in map_groups
-                    for map in map_group.maps
-                    for band in map.bands
-                ),
-            )
-        }
-        self.subsample = subsample
-        super().__init__(internal_provider_id=internal_provider_id)
-
-    def _get_tile_info(self, tile: PullableTile):
-        RA_OFFSET = -180.0
-        RA_RANGE = 2.0 * 180.0
-        DEC_OFFSET = -0.5 * 180.0
-        DEC_RANGE = 180.0
-
-        ra_per_tile = RA_RANGE / 2 ** (tile.level + 1)
-        dec_per_tile = DEC_RANGE / 2 ** (tile.level)
-
-        def pix(v, w):
-            return ((ra_per_tile * v + RA_OFFSET), (dec_per_tile * w + DEC_OFFSET))
-
-        bottom_left = pix(tile.x, tile.y)
-        top_right = pix(tile.x + 1, tile.y + 1)
-
-        return {
-            "ra_range": [bottom_left[0], top_right[0]],
-            "dec_range": [bottom_left[1], top_right[1]],
-        }
-
-    def pull(self, tile: PullableTile):
-        log = self.logger.bind(tile_hash=tile.hash)
-
-        layer = self.layers.get(tile.layer_id, None)
-
-        if not layer:
-            log.debug("fits.layer_not_found")
-            raise TileNotFoundError(f"Band {tile.layer_id} not available")
-
-        level_difference = layer.number_of_levels - tile.level - 1
-
-        if not self.subsample and level_difference:
-            log.debug("fits.not_subsampled")
-            raise TileNotFoundError("Not bottom level")
-
-        subsample_every = 2 ** (level_difference)
-
-        arrays = []
-
-        for provider in layer.provider.providers:
-            with fits.open(provider.filename) as h:
-                hdu = h[provider.hdu]
-
-                patch = extract_patch_from_fits(
-                    hdu=hdu,
-                    **self._get_tile_info(tile=tile),
-                    index=provider.index,
-                    subsample_every=subsample_every,
-                    log=log,
-                )
-
-                arrays.append(patch)
-
-        combined_patch = layer.provider.chain(arrays)
-
-        return PushableTile(
-            layer_id=tile.layer_id,
-            x=tile.x,
-            y=tile.y,
-            level=tile.level,
-            grant=layer.grant,
-            data=combined_patch,
             source=self.internal_provider_id,
         )
 

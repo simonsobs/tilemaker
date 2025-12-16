@@ -71,7 +71,7 @@ from typing import Literal
 
 from pydantic import BaseModel
 
-from .fits import FITSCombinationLayerProdiver, FITSLayerProvider
+from .fits import FITSCombinationLayerProvider, FITSLayerProvider
 
 
 class AuthenticatedModel(BaseModel):
@@ -86,7 +86,7 @@ class Layer(AuthenticatedModel):
     name: str
     description: str | None = None
 
-    provider: FITSLayerProvider | FITSCombinationLayerProdiver
+    provider: FITSLayerProvider | FITSCombinationLayerProvider
 
     bounding_left: float | None = None
     bounding_right: float | None = None

@@ -112,7 +112,7 @@ class FITSLayerProvider(LayerProvider):
             return WCS(h[self.hdu].header)
 
 
-class FITSCombinationLayerProdiver(LayerProvider):
+class FITSCombinationLayerProvider(LayerProvider):
     """
     Combination of multiple FITS files into a single layer. Takes as many layers
     as you like as inputs, and combines them in order using a simple function.
