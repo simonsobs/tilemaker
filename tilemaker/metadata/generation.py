@@ -5,7 +5,7 @@ Create a set of metadata directly from a provider.
 import os
 from hashlib import md5
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import structlog
 from astropy import units
@@ -137,8 +137,8 @@ class ProtoLayer(BaseModel):
     description: str | None = None
     quantity: str | None = None
     units: str | None = None
-    vmin: float | None = None
-    vmax: float | None = None
+    vmin: float | Literal["auto"] | None = None
+    vmax: float | Literal["auto"] | None = None
     cmap: str | None = None
     index: int | None = None
 
@@ -148,11 +148,18 @@ class ProtoLayer(BaseModel):
         if map_units != "unk":
             map_units = map_units or self.units
 
-            vmin = units.Quantity(self.vmin, unit=self.units)
-            vmax = units.Quantity(self.vmax, unit=self.units)
+            if self.vmax != "auto":
+                vmax = units.Quantity(self.vmax, unit=self.units)
+                vmax = vmax.to_value(map_units)
+            else:
+                vmax = "auto"
 
-            vmin = vmin.to_value(map_units)
-            vmax = vmax.to_value(map_units)
+            if self.vmin != "auto":
+                vmin = units.Quantity(self.vmin, unit=self.units)
+                vmin = vmin.to_value(map_units)
+            else:
+                vmin = "auto"
+
         else:
             vmin = self.vmin
             vmax = self.vmax
@@ -202,6 +209,78 @@ class FITSDiscriminator(BaseModel):
 
 
 DISCRIMINATORS = {
+    "weights": FITSDiscriminator(
+        label="weights",
+        filename_contains=["weight", "weights"],
+        proto_layers=[
+            ProtoLayer(
+                name="I Weights",
+                description="Intensity weights map",
+                quantity="I weights",
+                units="K^-2",
+                vmin="auto",
+                vmax="auto",
+                index=0,
+                cmap="viridis",
+            ),
+            ProtoLayer(
+                name="Q Weights",
+                description="Q-polarization weights map",
+                quantity="Q weights",
+                units="K^-2",
+                vmin="auto",
+                vmax="auto",
+                index=1,
+                cmap="viridis",
+            ),
+            ProtoLayer(
+                name="U Weights",
+                description="U-polarization weights map",
+                quantity="U weights",
+                units="K^-2",
+                vmin="auto",
+                vmax="auto",
+                index=2,
+                cmap="viridis",
+            ),
+        ],
+    ),
+    "wmap": FITSDiscriminator(
+        label="wmap",
+        filename_contains=["wmap"],
+        proto_layers=[
+            ProtoLayer(
+                name="Weighted intensity map",
+                description="Weighted intensity map",
+                quantity="I (weighted)",
+                units="K^-1",
+                vmin="auto",
+                vmax="auto",
+                cmap="PiYG",
+                index=0,
+            ),
+            ProtoLayer(
+                name="Weighted Q polarization map",
+                description="Weighted Q polarization map",
+                quantity="Q (weighted)",
+                units="K^-1",
+                vmin="auto",
+                vmax="auto",
+                cmap="PiYG",
+                index=1,
+            ),
+            ProtoLayer(
+                name="Weighted U polarization map",
+                description="Weighted U polarization map",
+                quantity="U (weighted)",
+                units="K^-1",
+                vmin="auto",
+                vmax="auto",
+                cmap="PiYG",
+                index=2,
+            ),
+        ],
+    ),
     "iqu": FITSDiscriminator(
         label="iqu",
         header_require={"NAXIS3": 3},
@@ -280,7 +359,7 @@ DISCRIMINATORS = {
                 quantity="n",
                 units=" ",
                 vmin=0.0,
-                vmax=100.0,
+                vmax="auto",
                 cmap="viridis",
                 index=None,
             )

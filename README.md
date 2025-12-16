@@ -404,6 +404,37 @@ You can restrict access at any level with the optional `grant` keyword. Users
 without this specific grant will not be able to access it (e.g.
 `"grant":"ivaraccess"` in the above).
 
+#### Combination Tile Providers
+
+In some cases, you may have multiple maps that you need to combine on-the-fly into 
+a single image. A common case of this is combining a weighted map and a weights map
+into an intensity map. Note that this functionality is not intended to be used for
+coadding of many maps; it is a relatively expensive operation. We have a secondary
+provider, `fits_combination`, that allows for this. Example:
+```json
+"provider": {
+  "provider_type": "fits_combination",
+  "providers": [
+      {
+          "provider_type": "fits",
+          "filename": "full_wmap.fits",
+          "hdu": 0,
+          "index": 1
+      },
+      {
+          "provider_type": "fits",
+          "filename": "full_weights.fits",
+          "hdu": 0,
+          "index": 1
+      }
+  ],
+  "function": "/"
+},
+```
+You can provide as many underlying 'providers' as you wish as a list, and they will be
+combined in order using `function` which is one of `/,*,-,+,min,max,mean` with their
+usual meanings.
+
 #### Getting a Starting Point
 
 You can generate the configuration that would be created for the `tilemaker open`

@@ -15,7 +15,8 @@ from astropy.wcs import WCS
 from astropy.wcs.utils import proj_plane_pixel_scales, skycoord_to_pixel
 from structlog.types import FilteringBoundLogger
 
-from tilemaker.metadata.definitions import FITSLayerProvider, Layer, MapGroup
+from tilemaker.metadata.definitions import MapGroup
+from tilemaker.metadata.fits import FITSCombinationLayerProvider, FITSLayerProvider
 
 from .core import PullableTile, PushableTile, TileNotFoundError, TileProvider
 
@@ -275,7 +276,7 @@ def extract_patch_from_fits(
 
 
 class FITSTileProvider(TileProvider):
-    layers: dict[int, Layer]
+    layers: dict[int, FITSLayerProvider | FITSCombinationLayerProvider]
     subsample: bool
 
     def __init__(
@@ -287,7 +288,9 @@ class FITSTileProvider(TileProvider):
         self.layers = {
             x.layer_id: x
             for x in filter(
-                lambda x: isinstance(x.provider, FITSLayerProvider),
+                lambda x: isinstance(
+                    x.provider, FITSLayerProvider | FITSCombinationLayerProvider
+                ),
                 chain.from_iterable(
                     band.layers
                     for map_group in map_groups
@@ -336,16 +339,35 @@ class FITSTileProvider(TileProvider):
 
         subsample_every = 2 ** (level_difference)
 
-        with fits.open(layer.provider.filename) as h:
-            hdu = h[layer.provider.hdu]
+        if isinstance(layer.provider, FITSCombinationLayerProvider):
+            arrays = []
 
-            patch = extract_patch_from_fits(
-                hdu=hdu,
-                **self._get_tile_info(tile=tile),
-                index=layer.provider.index,
-                subsample_every=subsample_every,
-                log=log,
-            )
+            for provider in layer.provider.providers:
+                with fits.open(provider.filename) as h:
+                    hdu = h[provider.hdu]
+
+                    patch = extract_patch_from_fits(
+                        hdu=hdu,
+                        **self._get_tile_info(tile=tile),
+                        index=provider.index,
+                        subsample_every=subsample_every,
+                        log=log,
+                    )
+
+                    arrays.append(patch)
+
+            patch = layer.provider.chain(arrays)
+        else:
+            with fits.open(layer.provider.filename) as h:
+                hdu = h[layer.provider.hdu]
+
+                patch = extract_patch_from_fits(
+                    hdu=hdu,
+                    **self._get_tile_info(tile=tile),
+                    index=layer.provider.index,
+                    subsample_every=subsample_every,
+                    log=log,
+                )
 
         return PushableTile(
             layer_id=tile.layer_id,
