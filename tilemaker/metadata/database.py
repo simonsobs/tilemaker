@@ -20,7 +20,7 @@ from .definitions import (
     Map,
     MapGroup,
 )
-from .fits import FITSLayerProvider
+from .fits import FITSLayerProvider, FITSCombinationLayerProdiver
 from .orm import (
     BandORM,
     Base,
@@ -196,7 +196,7 @@ class DatabaseDataConfiguration:
         from pydantic import TypeAdapter
 
         # Deserialize provider from JSON using Pydantic
-        provider_adapter = TypeAdapter(FITSLayerProvider)
+        provider_adapter = TypeAdapter(FITSLayerProvider | FITSCombinationLayerProdiver)
         provider = provider_adapter.validate_python(orm_layer.provider)
 
         # Convert vmin/vmax from string storage to proper type

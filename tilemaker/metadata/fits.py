@@ -3,6 +3,8 @@ FITS-based layer provider implementation.
 """
 
 import math
+import numpy as np
+from functools import reduce
 from pathlib import Path
 from typing import Literal
 
@@ -108,3 +110,99 @@ class FITSLayerProvider(LayerProvider):
         """Get the WCS object from the FITS file."""
         with fits.open(self.filename) as h:
             return WCS(h[self.hdu].header)
+
+
+class FITSCombinationLayerProdiver(LayerProvider):
+    """
+    Combination of multiple FITS files into a single layer. Takes as many layers
+    as you like as inputs, and combines them in order using a simple function.
+
+    For example, you could provide two FITS files and use the "/" function to
+    find their ratio. Example:
+
+    {
+        "provider_type": "fits_combination",
+        "providers": [
+            {
+                "provider_type": "fits",
+                "filename": "file1.fits"
+                "index": 2
+            },
+            {
+                "provider_type": "fits",
+                "filename": "file2.fits"
+                "index": 3
+            }
+        ],
+        "function": "/"
+    }
+
+    This would calculate: file1.fits[index=2] / file2.fits[index=3]
+    """
+
+    provider_type: Literal["fits_combination"] = "fits_combination"
+    providers: list[FITSLayerProvider]
+    function: Literal["+", "-", "*", "/", "max", "min", "mean"] = "/"
+
+    def get_bbox(self) -> dict[str, float]:
+        """Get the bounding box from the underlying providers. If
+        they differ, we crash."""
+
+        bboxes = [p.get_bbox() for p in self.providers]
+        first_bbox = bboxes[0]
+        for bbox in bboxes[1:]:
+            if bbox != first_bbox:
+                raise ValueError(
+                    "Bounding boxes of combined FITS providers do not match."
+                )
+
+        return first_bbox
+
+    def calculate_tile_size(self) -> tuple[int, int]:
+        """Calculate tile size from each provider, and make sure they match."""
+        tile_sizes = [p.calculate_tile_size() for p in self.providers]
+        first_size = tile_sizes[0]
+        for size in tile_sizes[1:]:
+            if size != first_size:
+                raise ValueError("Tile sizes of combined FITS providers do not match.")
+
+        return first_size
+
+    def get_wcs(self) -> WCS:
+        """Get the WCS from the first provider."""
+        return self.providers[0].get_wcs()
+
+    def chain(self, arrays: list[np.ndarray]) -> np.ndarray:
+        """Chain the arrays together using the specified function."""
+        if not arrays:
+            raise ValueError("No arrays provided for combination.")
+        
+        if all(x is None for x in arrays):
+            return None
+
+        func = {
+            "+": np.add,
+            "-": np.subtract,
+            "*": np.multiply,
+            "/": np.divide,
+            "max": np.maximum,
+            "min": np.minimum,
+            "mean": lambda x, y: (x + y) / 2,
+        }
+
+        # Handle None values (i.e. when maps contain no information)
+        # with an appropiate neutral element.
+        none_handler = {
+            "+": 0.0,
+            "-": 0.0,
+            "*": 1.0,
+            "/": 1.0,
+            "max": -np.inf,
+            "min": np.inf,
+            "mean": 0.0,
+        }
+
+        return reduce(
+            func[self.function],
+            [x if x is not None else none_handler[self.function] for x in arrays],
+        )
