@@ -79,7 +79,7 @@ class HistogramProduct(AnalysisProduct):
 
         if auto_vmin or auto_vmax:
             combined_array = np.hstack(
-                (x.data.flatten() for x in read_tiles if x.data is not None)
+                [x.data.flatten() for x in read_tiles if x.data is not None]
             )
             combined_array = combined_array[np.isfinite(combined_array)]
             suggested_vmin, suggested_vmax = np.quantile(
