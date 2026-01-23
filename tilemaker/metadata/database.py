@@ -9,7 +9,7 @@ import itertools
 from typing import Iterable
 
 import structlog
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import Session, sessionmaker
 
 from .boxes import Box
@@ -49,6 +49,11 @@ class DatabaseDataConfiguration:
             SQLAlchemy database URL (e.g., 'sqlite:///config.db', 'postgresql://user:password@localhost/dbname')
         """
         self.engine = create_engine(database_url)
+
+        def _fk_pragma_on_connect(dbapi_con, con_record):
+            dbapi_con.execute("pragma foreign_keys=ON")
+
+        event.listen(self.engine, "connect", _fk_pragma_on_connect)
         self.session_maker = sessionmaker(bind=self.engine)
         self.log = structlog.get_logger()
 
