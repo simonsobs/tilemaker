@@ -488,6 +488,10 @@ called 'extra' that will be rendered in the UI. For example:
   }
 ]
 ```
+Such a list of sources can be loaded using `tilemaker open` by passing the JSON filename, e.g.
+```
+tilemaker open my_catalog.json my_map.fits
+```
 
 ### Highlight Boxes
 

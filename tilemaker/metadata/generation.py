@@ -10,10 +10,11 @@ from typing import Any, Literal
 import structlog
 from astropy import units
 from astropy.io import fits
-from pydantic import BaseModel
+from pydantic import BaseModel, TypeAdapter
 
 from tilemaker.metadata.core import DataConfiguration
 from tilemaker.metadata.definitions import Band, FITSLayerProvider, Layer, Map, MapGroup
+from tilemaker.metadata.sources import Source, SourceGroup
 
 # Define the hits unit
 hits = units.def_unit("hits", units.dimensionless_unscaled)
@@ -25,12 +26,28 @@ def generate(
 ) -> DataConfiguration:
     map_files = [x for x in filenames if "fits" in x.name]
     map_group = map_group_from_fits(map_files, force_auto_contrast=force_auto_contrast)
+    source_files = [x for x in filenames if "json" in x.name]
+    source_groups = [source_group_from_json(x) for x in source_files]
 
-    return DataConfiguration(map_groups=[map_group], boxes=[], source_groups=[])
+    return DataConfiguration(
+        map_groups=[map_group], boxes=[], source_groups=source_groups
+    )
 
 
 def filename_to_id(filename: str | Path) -> str:
     return md5(str(filename).encode("utf-8")).hexdigest()[:6]
+
+
+def source_group_from_json(source_file: Path) -> SourceGroup:
+    with open(source_file, "r") as handle:
+        SourceListTypeAdapter = TypeAdapter(list[Source])
+        return SourceGroup(
+            source_group_id=filename_to_id(source_file),
+            name=source_file.name,
+            description="Source group read from file",
+            sources=SourceListTypeAdapter.validate_json(handle.read()),
+            grant=None,
+        )
 
 
 def map_group_from_fits(
