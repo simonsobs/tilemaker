@@ -81,11 +81,13 @@ class AuthenticatedModel(BaseModel):
         return self.grant is None or self.grant in grants
 
 
-class Layer(AuthenticatedModel):
+class LayerSummary(AuthenticatedModel):
     layer_id: str
     name: str
     description: str | None = None
 
+
+class Layer(LayerSummary):
     provider: FITSLayerProvider | FITSCombinationLayerProvider
 
     bounding_left: float | None = None
@@ -115,26 +117,52 @@ class Layer(AuthenticatedModel):
             self.tile_size, self.number_of_levels = self.provider.calculate_tile_size()
 
 
-class Band(AuthenticatedModel):
+class LayerDefault(AuthenticatedModel):
+    map_group_id: str
+    map_id: str
+    band_id: str
+    layer: Layer
+
+
+class BandBase(AuthenticatedModel):
     band_id: str
     name: str
     description: str
 
+
+class BandSummary(BandBase):
+    layer_ids: list[str]
+    
+
+class Band(BandBase):
     layers: list[Layer]
 
 
-class Map(AuthenticatedModel):
+class MapBase(AuthenticatedModel):
     map_id: str
     name: str
     description: str
 
+
+class MapSummary(MapBase):
+    band_ids: list[str]
+
+
+class Map(MapBase):
     bands: list[Band]
 
 
-class MapGroup(AuthenticatedModel):
-    name: str
-    description: str
+class MapGroupBase(AuthenticatedModel):
+  map_group_id: str
+  name: str
+  description: str 
 
+
+class MapGroupSummary(MapGroupBase):
+  map_ids: list[str]
+
+
+class MapGroup(MapGroupBase):
     maps: list[Map]
 
     def get_layer(self, layer_id: str) -> Layer | None:
