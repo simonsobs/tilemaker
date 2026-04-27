@@ -117,25 +117,18 @@ class Layer(LayerSummary):
             self.tile_size, self.number_of_levels = self.provider.calculate_tile_size()
 
 
-class LayerDefault(AuthenticatedModel):
-    map_group_id: str
-    map_id: str
-    band_id: str
-    layer: Layer
-
-
 class BandBase(AuthenticatedModel):
     band_id: str
     name: str
     description: str
-
-
-class BandSummary(BandBase):
-    layer_ids: list[str]
     
 
 class Band(BandBase):
     layers: list[Layer]
+
+
+class BandMenuState(BandBase):
+    layers: list[LayerSummary]
 
 
 class MapBase(AuthenticatedModel):
@@ -144,22 +137,18 @@ class MapBase(AuthenticatedModel):
     description: str
 
 
-class MapSummary(MapBase):
-    band_ids: list[str]
-
-
 class Map(MapBase):
     bands: list[Band]
+
+
+class MapMenuState(MapBase):
+    bands: list[BandMenuState]
 
 
 class MapGroupBase(AuthenticatedModel):
   map_group_id: str
   name: str
   description: str 
-
-
-class MapGroupSummary(MapGroupBase):
-  map_ids: list[str]
 
 
 class MapGroup(MapGroupBase):
@@ -173,3 +162,15 @@ class MapGroup(MapGroupBase):
                         return layer
 
         return None
+
+
+class MapGroupMenuState(MapGroupBase):
+    maps: list[MapMenuState]
+
+
+class LayerDefault(AuthenticatedModel):
+    layer: Layer
+    default_layer_menu: list[MapGroupMenuState]
+    default_map_group_id: str
+    default_map_id: str
+    default_band_id: str

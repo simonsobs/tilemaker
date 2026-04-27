@@ -2,7 +2,7 @@
 Endpoint for summary data of a band's layers
 """
 
-from tilemaker.metadata.definitions import BandSummary, LayerSummary
+from tilemaker.metadata.definitions import LayerSummary
 
 from fastapi import (
     APIRouter,

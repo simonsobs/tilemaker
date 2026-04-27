@@ -14,7 +14,7 @@ from fastapi import (
     Response,
 )
 
-from tilemaker.metadata.definitions import Layer, LayerDefault
+from tilemaker.metadata.definitions import Layer, LayerDefault, MapGroupMenuState, LayerSummary, BandMenuState, MapMenuState, MapGroupBase
 from tilemaker.processing.extractor import extract
 from tilemaker.providers.fits import PullableTile
 
@@ -25,6 +25,11 @@ renderer = Renderer(format="webp")
 layers_router = APIRouter(prefix="/layers", tags=["Layers and Tiles"])
 
 
+"""
+    Naively set to the first layer found according to the structure of
+    map groups -> maps -> bands -> layers. Basically, it's the first index
+    of each tier until reaching the layer tier.
+"""
 @layers_router.get(
     "/default",
     response_model=LayerDefault,
@@ -32,17 +37,83 @@ layers_router = APIRouter(prefix="/layers", tags=["Layers and Tiles"])
     description="Gets layer data needed for the menu and map when first loaded."
 )
 def get_default_layer(request: Request):
-    for map_group in request.app.config.map_groups:
-        for map in map_group.maps:
-            for band in map.bands:
-                for layer in band.layers:
-                    default_layer = LayerDefault(
-                        map_group_id=map_group.map_group_id,
+    default_map_group_id = None
+    default_map_id = None
+    default_band_id = None
+    default_layer = None
+    map_groups = []
+
+    for group_idx, map_group in enumerate(request.app.config.map_groups):
+        if map_group.auth(request.auth.scopes) is False: 
+            continue
+
+        maps = []
+
+        if group_idx == 0:
+            default_map_group_id = map_group.map_group_id
+            for map_idx, map in enumerate(map_group.maps):
+                bands = []
+
+                if map_idx == 0:
+                    default_map_id = map.map_id
+                    for band_idx, band in enumerate(map.bands):
+                        layers = []
+
+                        if band_idx == 0:
+                            default_band_id = band.band_id
+                            for layer_idx, layer in enumerate(band.layers):
+                                layers.append(
+                                    LayerSummary(
+                                        layer_id=layer.layer_id,
+                                        name=layer.name,
+                                        description=layer.description,
+                                    )
+                                )
+                                if group_idx == 0 and map_idx == 0 and band_idx == 0 and layer_idx == 0:
+                                    default_layer = layer
+
+                        bands.append(
+                            BandMenuState(
+                                band_id=band.band_id,
+                                name=band.name,
+                                description=band.description,
+                                layers=layers
+                            )
+                        )
+
+                maps.append(
+                    MapMenuState(
                         map_id=map.map_id,
-                        band_id=band.band_id,
-                        layer=layer,
+                        name=map.name,
+                        description=map.description,
+                        bands=bands
                     )
-                    return default_layer
+                )
+
+            map_groups.append(
+                MapGroupMenuState(
+                    map_group_id=map_group.map_group_id,
+                    name=map_group.name,
+                    description=map_group.description,
+                    maps=maps
+                )
+            )
+        else:
+            map_groups.append(
+                MapGroupMenuState(
+                    map_group_id=map_group.map_group_id,
+                    name=map_group.name,
+                    description=map_group.description,
+                    maps=[]
+                )
+            )
+    return LayerDefault(
+        layer=default_layer,
+        default_layer_menu=map_groups,
+        default_map_group_id=default_map_group_id,
+        default_map_id=default_map_id,
+        default_band_id=default_band_id,
+        )
                 
 
 @layers_router.get(
@@ -56,11 +127,12 @@ def get_layer_summaries_of_band(
     request: Request
 ):
     for map_group in request.app.config.map_groups:
-        for map in map_group.maps:
-            for band in map.bands:
-                for layer in band.layers:
-                    if (layer.layer_id == layer_id and map_group.auth(request.auth.scopes)):
-                        return layer
+        if map_group.auth(request.auth.scopes):
+            for map in map_group.maps:
+                for band in map.bands:
+                    for layer in band.layers:
+                        if (layer.layer_id == layer_id and map_group.auth(request.auth.scopes)):
+                            return layer
                     
 
 @layers_router.get(
@@ -179,7 +251,7 @@ def get_tile(
         raise HTTPException(status_code=400, detail="Not an acceptable extension")
 
     numpy_buf = core_tile_retrieval(
-        layer=layer_id,
+        layer_id=layer_id,
         level=level,
         y=y,
         x=x,
