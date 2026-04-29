@@ -117,6 +117,12 @@ class Layer(LayerSummary):
             self.tile_size, self.number_of_levels = self.provider.calculate_tile_size()
 
 
+class LayerWithMenuState(Layer):
+    map_group_id: str
+    map_id: str
+    band_id: str
+
+
 class BandBase(AuthenticatedModel):
     band_id: str
     name: str
@@ -174,3 +180,8 @@ class LayerDefault(AuthenticatedModel):
     default_map_group_id: str
     default_map_id: str
     default_band_id: str
+
+
+class SearchResponse(AuthenticatedModel):
+    filtered_layer_menu: list[MapGroupMenuState]
+    matched_ids: list[str]

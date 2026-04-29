@@ -18,6 +18,7 @@ from .map_groups import map_groups_router
 from .maps import maps_router
 from .bands import bands_router
 from .layers import layers_router
+from .search import search_router
 from .sources import sources_router
 
 
@@ -68,6 +69,7 @@ app.include_router(map_groups_router)
 app.include_router(maps_router)
 app.include_router(bands_router)
 app.include_router(layers_router)
+app.include_router(search_router)
 app.include_router(analysis_router)
 
 if settings.serve_frontend:

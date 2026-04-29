@@ -14,7 +14,7 @@ from fastapi import (
     Response,
 )
 
-from tilemaker.metadata.definitions import Layer, LayerDefault, MapGroupMenuState, LayerSummary, BandMenuState, MapMenuState, MapGroupBase
+from tilemaker.metadata.definitions import Layer, LayerDefault, MapGroupMenuState, LayerSummary, BandMenuState, MapMenuState, LayerWithMenuState
 from tilemaker.processing.extractor import extract
 from tilemaker.providers.fits import PullableTile
 
@@ -118,11 +118,11 @@ def get_default_layer(request: Request):
 
 @layers_router.get(
     "/{layer_id}",
-    response_model=Layer,
+    response_model=LayerWithMenuState,
     summary="Get the Layer data.",
     description="Retrieve the Layer data to be rendered in the mapping client."
 )
-def get_layer_summaries_of_band(
+def get_layer_with_menu_state(
     layer_id: str,
     request: Request
 ):
@@ -132,7 +132,12 @@ def get_layer_summaries_of_band(
                 for band in map.bands:
                     for layer in band.layers:
                         if (layer.layer_id == layer_id and map_group.auth(request.auth.scopes)):
-                            return layer
+                            return LayerWithMenuState(
+                                **layer.model_dump(),
+                                map_group_id=map_group.map_group_id,
+                                map_id=map.map_id,
+                                band_id=band.band_id,
+                            )
                     
 
 @layers_router.get(
