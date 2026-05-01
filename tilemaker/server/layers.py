@@ -1,6 +1,7 @@
 """
 Endpoint for layer and tile data
 """
+
 import io
 from typing import Literal
 
@@ -14,7 +15,14 @@ from fastapi import (
     Response,
 )
 
-from tilemaker.metadata.definitions import Layer, LayerDefault, MapGroupMenuState, LayerSummary, BandMenuState, MapMenuState, LayerWithMenuState
+from tilemaker.metadata.definitions import (
+    BandMenuState,
+    LayerDefault,
+    LayerSummary,
+    LayerWithMenuState,
+    MapGroupMenuState,
+    MapMenuState,
+)
 from tilemaker.processing.extractor import extract
 from tilemaker.providers.fits import PullableTile
 
@@ -30,11 +38,13 @@ layers_router = APIRouter(prefix="/layers", tags=["Layers and Tiles"])
     map groups -> maps -> bands -> layers. Basically, it's the first index
     of each tier until reaching the layer tier.
 """
+
+
 @layers_router.get(
     "/default",
     response_model=LayerDefault,
     summary="Get the hierarchy and layer data for a default layer.",
-    description="Gets layer data needed for the menu and map when first loaded."
+    description="Gets layer data needed for the menu and map when first loaded.",
 )
 def get_default_layer(request: Request):
     default_map_group_id = None
@@ -44,7 +54,7 @@ def get_default_layer(request: Request):
     map_groups = []
 
     for group_idx, map_group in enumerate(request.app.config.map_groups):
-        if map_group.auth(request.auth.scopes) is False: 
+        if map_group.auth(request.auth.scopes) is False:
             continue
 
         maps = []
@@ -69,7 +79,12 @@ def get_default_layer(request: Request):
                                         description=layer.description,
                                     )
                                 )
-                                if group_idx == 0 and map_idx == 0 and band_idx == 0 and layer_idx == 0:
+                                if (
+                                    group_idx == 0
+                                    and map_idx == 0
+                                    and band_idx == 0
+                                    and layer_idx == 0
+                                ):
                                     default_layer = layer
 
                         bands.append(
@@ -77,7 +92,7 @@ def get_default_layer(request: Request):
                                 band_id=band.band_id,
                                 name=band.name,
                                 description=band.description,
-                                layers=layers
+                                layers=layers,
                             )
                         )
 
@@ -86,7 +101,7 @@ def get_default_layer(request: Request):
                         map_id=map.map_id,
                         name=map.name,
                         description=map.description,
-                        bands=bands
+                        bands=bands,
                     )
                 )
 
@@ -95,7 +110,7 @@ def get_default_layer(request: Request):
                     map_group_id=map_group.map_group_id,
                     name=map_group.name,
                     description=map_group.description,
-                    maps=maps
+                    maps=maps,
                 )
             )
         else:
@@ -104,7 +119,7 @@ def get_default_layer(request: Request):
                     map_group_id=map_group.map_group_id,
                     name=map_group.name,
                     description=map_group.description,
-                    maps=[]
+                    maps=[],
                 )
             )
     return LayerDefault(
@@ -113,32 +128,31 @@ def get_default_layer(request: Request):
         default_map_group_id=default_map_group_id,
         default_map_id=default_map_id,
         default_band_id=default_band_id,
-        )
-                
+    )
+
 
 @layers_router.get(
     "/{layer_id}",
     response_model=LayerWithMenuState,
     summary="Get the Layer data.",
-    description="Retrieve the Layer data to be rendered in the mapping client."
+    description="Retrieve the Layer data to be rendered in the mapping client.",
 )
-def get_layer_with_menu_state(
-    layer_id: str,
-    request: Request
-):
+def get_layer_with_menu_state(layer_id: str, request: Request):
     for map_group in request.app.config.map_groups:
         if map_group.auth(request.auth.scopes):
             for map in map_group.maps:
                 for band in map.bands:
                     for layer in band.layers:
-                        if (layer.layer_id == layer_id and map_group.auth(request.auth.scopes)):
+                        if layer.layer_id == layer_id and map_group.auth(
+                            request.auth.scopes
+                        ):
                             return LayerWithMenuState(
                                 **layer.model_dump(),
                                 map_group_id=map_group.map_group_id,
                                 map_id=map.map_id,
                                 band_id=band.band_id,
                             )
-                    
+
 
 @layers_router.get(
     "/{layer_id}/submap/{left}/{right}/{top}/{bottom}/image.{ext}",
@@ -203,7 +217,9 @@ def core_tile_retrieval(
     request: Request,
 ):
     tile, pushables = request.app.tiles.pull(
-        PullableTile(layer_id=layer_id, x=x, y=y, level=level, grants=request.auth.scopes)
+        PullableTile(
+            layer_id=layer_id, x=x, y=y, level=level, grants=request.auth.scopes
+        )
     )
 
     bt.add_task(request.app.tiles.push, pushables)

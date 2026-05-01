@@ -12,12 +12,12 @@ from fastapi.staticfiles import StaticFiles
 from ..settings import settings
 from .analysis import analysis_router
 from .auth import setup_auth
+from .bands import bands_router
 from .highlights import highlights_router
 from .histogram import histogram_router
+from .layers import layers_router
 from .map_groups import map_groups_router
 from .maps import maps_router
-from .bands import bands_router
-from .layers import layers_router
 from .search import search_router
 from .sources import sources_router
 

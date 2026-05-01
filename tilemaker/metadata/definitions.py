@@ -127,7 +127,7 @@ class BandBase(AuthenticatedModel):
     band_id: str
     name: str
     description: str
-    
+
 
 class Band(BandBase):
     layers: list[Layer]
@@ -152,9 +152,9 @@ class MapMenuState(MapBase):
 
 
 class MapGroupBase(AuthenticatedModel):
-  map_group_id: str
-  name: str
-  description: str 
+    map_group_id: str
+    name: str
+    description: str
 
 
 class MapGroup(MapGroupBase):

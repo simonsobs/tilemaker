@@ -78,9 +78,9 @@ def map_group_from_fits(
 
     return MapGroup(
         map_group_id=f"map-group-{uuid.uuid4()}",
-        name="Auto-Populated", 
-        description="No description provided", 
-        maps=maps
+        name="Auto-Populated",
+        description="No description provided",
+        maps=maps,
     )
 
 

@@ -1,21 +1,23 @@
 """
 Endpoint to search map groups and its children
 """
+
 from fastapi import (
     APIRouter,
-    Request,
     Query,
+    Request,
 )
 
 from tilemaker.metadata.definitions import SearchResponse
 
-
 search_router = APIRouter(prefix="/search", tags=["Search map groups"])
-    
+
 
 @search_router.get("", response_model=SearchResponse)
 def search_layers(request: Request, q: str = Query(..., min_length=1)):
-    raw_groups = [g.dict() for g in request.app.config.map_groups if g.auth(request.auth.scopes)]
+    raw_groups = [
+        g.dict() for g in request.app.config.map_groups if g.auth(request.auth.scopes)
+    ]
     result = filter_map_groups(raw_groups, q)
 
     return SearchResponse(
@@ -36,7 +38,7 @@ def filter_map_groups(map_groups: list, query: str) -> dict:
     for group in map_groups:
         # Group name matches — keep entire subtree intact
         if match(group["name"], query):
-            matched_ids.add(group["name"])
+            matched_ids.add(group["map_group_id"])
             filtered_groups.append(group)
             continue
 
@@ -57,8 +59,10 @@ def filter_map_groups(map_groups: list, query: str) -> dict:
                     continue
 
                 filtered_layers = [
-                    layer for layer in band.get("layers", [])
-                    if match(layer["name"], query) and matched_ids.add(layer["layer_id"]) is None
+                    layer
+                    for layer in band.get("layers", [])
+                    if match(layer["name"], query)
+                    and matched_ids.add(layer["layer_id"]) is None
                 ]
                 if filtered_layers:
                     filtered_bands.append({**band, "layers": filtered_layers})
