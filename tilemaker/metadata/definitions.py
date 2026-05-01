@@ -81,11 +81,13 @@ class AuthenticatedModel(BaseModel):
         return self.grant is None or self.grant in grants
 
 
-class Layer(AuthenticatedModel):
+class LayerSummary(AuthenticatedModel):
     layer_id: str
     name: str
     description: str | None = None
 
+
+class Layer(LayerSummary):
     provider: FITSLayerProvider | FITSCombinationLayerProvider
 
     bounding_left: float | None = None
@@ -115,26 +117,47 @@ class Layer(AuthenticatedModel):
             self.tile_size, self.number_of_levels = self.provider.calculate_tile_size()
 
 
-class Band(AuthenticatedModel):
+class LayerWithMenuState(Layer):
+    map_group_id: str
+    map_id: str
+    band_id: str
+
+
+class BandBase(AuthenticatedModel):
     band_id: str
     name: str
     description: str
 
+
+class Band(BandBase):
     layers: list[Layer]
 
 
-class Map(AuthenticatedModel):
+class BandMenuState(BandBase):
+    layers: list[LayerSummary]
+
+
+class MapBase(AuthenticatedModel):
     map_id: str
     name: str
     description: str
 
+
+class Map(MapBase):
     bands: list[Band]
 
 
-class MapGroup(AuthenticatedModel):
+class MapMenuState(MapBase):
+    bands: list[BandMenuState]
+
+
+class MapGroupBase(AuthenticatedModel):
+    map_group_id: str
     name: str
     description: str
 
+
+class MapGroup(MapGroupBase):
     maps: list[Map]
 
     def get_layer(self, layer_id: str) -> Layer | None:
@@ -145,3 +168,20 @@ class MapGroup(AuthenticatedModel):
                         return layer
 
         return None
+
+
+class MapGroupMenuState(MapGroupBase):
+    maps: list[MapMenuState]
+
+
+class LayerDefault(AuthenticatedModel):
+    layer: Layer
+    default_layer_menu: list[MapGroupMenuState]
+    default_map_group_id: str
+    default_map_id: str
+    default_band_id: str
+
+
+class SearchResponse(AuthenticatedModel):
+    filtered_layer_menu: list[MapGroupMenuState]
+    matched_ids: list[str]
