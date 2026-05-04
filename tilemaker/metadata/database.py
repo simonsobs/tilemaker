@@ -262,6 +262,7 @@ class DatabaseDataConfiguration:
             description=orm_group.description,
             maps=maps,
             grant=orm_group.grant,
+            map_group_id=orm_group.map_group_id,
         )
 
     def populate_from_config(self, config: "DataConfiguration") -> None:
@@ -286,6 +287,7 @@ class DatabaseDataConfiguration:
                         name=map_group.name,
                         description=map_group.description,
                         grant=map_group.grant,
+                        map_group_id=map_group.map_group_id,
                     )
                     session.add(orm_group)
                     session.flush()
