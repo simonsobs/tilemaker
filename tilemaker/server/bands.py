@@ -19,17 +19,14 @@ bands_router = APIRouter(prefix="/bands", tags=["List of Bands"])
     description="Retrieve a list of LayerSummary objects that belong to a particular Band.",
 )
 def get_layer_summaries_of_band(band_id: str, request: Request):
-    for map_group in request.app.config.map_groups:
-        for map in map_group.maps:
-            for band in map.bands:
-                if band.band_id == band_id and map_group.auth(request.auth.scopes):
-                    layer_summaries = []
-                    for layer in band.layers:
-                        layer_summary = LayerSummary(
-                            layer_id=layer.layer_id,
-                            name=layer.name,
-                            description=layer.description,
-                        )
-                        layer_summaries.append(layer_summary)
-                    return layer_summaries
-    return []
+    layer_summaries = []
+    for band in request.app.config.bands:
+        if band.band_id == band_id and band.auth(request.auth.scopes):
+            for layer in band.layers:
+                layer_summary = LayerSummary(
+                    layer_id=layer.layer_id,
+                    name=layer.name,
+                    description=layer.description,
+                )
+                layer_summaries.append(layer_summary)
+    return layer_summaries

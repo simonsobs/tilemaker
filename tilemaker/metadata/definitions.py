@@ -175,11 +175,11 @@ class MapGroupMenuState(MapGroupBase):
 
 
 class LayerDefault(AuthenticatedModel):
-    layer: Layer
+    layer: Layer | None
     default_layer_menu: list[MapGroupMenuState]
-    default_map_group_id: str
-    default_map_id: str
-    default_band_id: str
+    default_map_group_id: str | None
+    default_map_id: str | None
+    default_band_id: str | None
 
 
 class SearchResponse(AuthenticatedModel):

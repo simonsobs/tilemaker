@@ -34,9 +34,9 @@ layers_router = APIRouter(prefix="/layers", tags=["Layers and Tiles"])
 
 
 """
-    Naively set to the first layer found according to the structure of
-    map groups -> maps -> bands -> layers. Basically, it's the first index
-    of each tier until reaching the layer tier.
+    Sets default layer to the first layer found after filtering for auth status, i.e.
+    auth_map_groups[0].maps[0].bands[0].layers[0]. Also creates a menu state for the
+    client to render an initial layer menu.
 """
 
 
@@ -47,87 +47,82 @@ layers_router = APIRouter(prefix="/layers", tags=["Layers and Tiles"])
     description="Gets layer data needed for the menu and map when first loaded.",
 )
 def get_default_layer(request: Request):
-    default_map_group_id = None
-    default_map_id = None
-    default_band_id = None
-    default_layer = None
-    map_groups = []
+    authorized_map_groups = list(
+        filter(lambda x: x.auth(request.auth.scopes), request.app.config.map_groups)
+    )
 
-    for group_idx, map_group in enumerate(request.app.config.map_groups):
-        if map_group.auth(request.auth.scopes) is False:
-            continue
+    # Return early because we have no default layer nor menu state
+    if not authorized_map_groups:
+        return LayerDefault(
+            layer=None,
+            default_layer_menu=[],
+            default_map_group_id=None,
+            default_map_id=None,
+            default_band_id=None,
+        )
 
-        maps = []
+    # Otherwise, set defaults to first index at each level
+    default_map_group = authorized_map_groups[0]
+    default_map = default_map_group.maps[0]
+    default_band = default_map.bands[0]
+    default_layer = default_band.layers[0]
 
-        if group_idx == 0:
-            default_map_group_id = map_group.map_group_id
-            for map_idx, map in enumerate(map_group.maps):
-                bands = []
+    # Make layer summaries for all the default band's layers
+    default_layer_summaries = [
+        LayerSummary(
+            layer_id=layer.layer_id, name=layer.name, description=layer.description
+        )
+        for layer in default_band.layers
+    ]
 
-                if map_idx == 0:
-                    default_map_id = map.map_id
-                    for band_idx, band in enumerate(map.bands):
-                        layers = []
-
-                        if band_idx == 0:
-                            default_band_id = band.band_id
-                            for layer_idx, layer in enumerate(band.layers):
-                                layers.append(
-                                    LayerSummary(
-                                        layer_id=layer.layer_id,
-                                        name=layer.name,
-                                        description=layer.description,
-                                    )
-                                )
-                                if (
-                                    group_idx == 0
-                                    and map_idx == 0
-                                    and band_idx == 0
-                                    and layer_idx == 0
-                                ):
-                                    default_layer = layer
-
-                        bands.append(
-                            BandMenuState(
-                                band_id=band.band_id,
-                                name=band.name,
-                                description=band.description,
-                                layers=layers,
-                            )
-                        )
-
-                maps.append(
-                    MapMenuState(
-                        map_id=map.map_id,
-                        name=map.name,
-                        description=map.description,
-                        bands=bands,
-                    )
-                )
-
-            map_groups.append(
-                MapGroupMenuState(
-                    map_group_id=map_group.map_group_id,
-                    name=map_group.name,
-                    description=map_group.description,
-                    maps=maps,
-                )
+    # Add the default_layer_summaries only to the default band; otherwise, assign an empty list
+    default_band_summaries = []
+    for band in default_map.bands:
+        default_band_summaries.append(
+            BandMenuState(
+                band_id=band.band_id,
+                name=band.name,
+                description=band.description,
+                layers=default_layer_summaries
+                if band.band_id == default_band.band_id
+                else [],
             )
-        else:
-            map_groups.append(
-                MapGroupMenuState(
-                    map_group_id=map_group.map_group_id,
-                    name=map_group.name,
-                    description=map_group.description,
-                    maps=[],
-                )
+        )
+
+    # Add the default_band_summaries only to the default map; otherwise, assign an empty list
+    default_map_summaries = []
+    for map in default_map_group.maps:
+        default_map_summaries.append(
+            MapMenuState(
+                map_id=map.map_id,
+                name=map.name,
+                description=map.description,
+                bands=default_band_summaries
+                if map.map_id == default_map.map_id
+                else [],
             )
+        )
+
+    # Add the default_map_summaries only to the default map group; otherwise, assign an empty list
+    default_map_groups = []
+    for map_group in authorized_map_groups:
+        default_map_groups.append(
+            MapGroupMenuState(
+                map_group_id=map_group.map_group_id,
+                name=map_group.name,
+                description=map_group.description,
+                maps=default_map_summaries
+                if map_group.map_group_id == default_map_group.map_group_id
+                else [],
+            )
+        )
+
     return LayerDefault(
         layer=default_layer,
-        default_layer_menu=map_groups,
-        default_map_group_id=default_map_group_id,
-        default_map_id=default_map_id,
-        default_band_id=default_band_id,
+        default_layer_menu=default_map_groups,
+        default_map_group_id=default_map_group.map_group_id,
+        default_map_id=default_map.map_id,
+        default_band_id=default_band.band_id,
     )
 
 
