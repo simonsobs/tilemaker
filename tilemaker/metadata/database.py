@@ -61,6 +61,13 @@ class DatabaseDataConfiguration:
         """Create all tables in the database."""
         Base.metadata.create_all(self.engine)
 
+    """
+    TODO: Use database queries to filter map groups based on query string
+    """
+
+    def filter_map_groups(self, authorized_map_groups: list, query: str) -> dict:
+        return {"filtered_map_groups": [], "matched_ids": []}
+
     @property
     def map_groups(self) -> list[MapGroup]:
         """Retrieve all map groups from the database."""
@@ -86,6 +93,13 @@ class DatabaseDataConfiguration:
                 self._orm_to_source_group(session, orm_group)
                 for orm_group in orm_groups
             ]
+
+    @property
+    def bands(self) -> Iterable[Band]:
+        """Retrieve all bands from the database."""
+        return itertools.chain.from_iterable(
+            map.bands for group in self.map_groups for map in group.maps
+        )
 
     @property
     def layers(self) -> Iterable[Layer]:

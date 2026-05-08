@@ -6,7 +6,7 @@ import structlog
 from pydantic import BaseModel
 
 from .boxes import Box
-from .definitions import Layer, MapGroup
+from .definitions import Band, Layer, MapGroup
 from .sources import SourceGroup
 
 
@@ -20,6 +20,59 @@ class DataConfiguration(BaseModel):
             map_groups=self.map_groups + other.map_groups,
             boxes=self.boxes + other.boxes,
             source_groups=self.source_groups + other.source_groups,
+        )
+
+    def _match(self, name: str, query: str) -> bool:
+        return query.lower() in name.lower()
+
+    def filter_map_groups(self, authorized_map_groups: list, query: str) -> dict:
+        matched_ids: set[str] = set()
+        filtered_groups = []
+
+        for group in authorized_map_groups:
+            # Group name matches — keep entire subtree intact
+            if self._match(group["name"], query):
+                matched_ids.add(group["map_group_id"])
+                filtered_groups.append(group)
+                continue
+
+            filtered_maps = []
+            for map in group.get("maps", []):
+                # Map name matches — keep entire subtree intact
+                if self._match(map["name"], query):
+                    matched_ids.add(map["map_id"])
+                    filtered_maps.append(map)
+                    continue
+
+                filtered_bands = []
+                for band in map.get("bands", []):
+                    # Band name matches — keep entire subtree intact
+                    if self._match(band["name"], query):
+                        matched_ids.add(band["band_id"])
+                        filtered_bands.append(band)
+                        continue
+
+                    filtered_layers = [
+                        layer
+                        for layer in band.get("layers", [])
+                        if self._match(layer["name"], query)
+                        and matched_ids.add(layer["layer_id"]) is None
+                    ]
+                    if filtered_layers:
+                        filtered_bands.append({**band, "layers": filtered_layers})
+
+                if filtered_bands:
+                    filtered_maps.append({**map, "bands": filtered_bands})
+
+            if filtered_maps:
+                filtered_groups.append({**group, "maps": filtered_maps})
+
+        return {"filtered_map_groups": filtered_groups, "matched_ids": matched_ids}
+
+    @property
+    def bands(self) -> Iterable[Band]:
+        return itertools.chain.from_iterable(
+            map.bands for group in self.map_groups for map in group.maps
         )
 
     @property
