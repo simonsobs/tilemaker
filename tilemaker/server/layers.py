@@ -56,16 +56,18 @@ def get_default_layer(request: Request):
         return LayerDefault(
             layer=None,
             default_layer_menu=[],
-            default_map_group_id=None,
-            default_map_id=None,
-            default_band_id=None,
         )
 
     # Otherwise, set defaults to first index at each level
     default_map_group = authorized_map_groups[0]
     default_map = default_map_group.maps[0]
     default_band = default_map.bands[0]
-    default_layer = default_band.layers[0]
+    default_layer = LayerWithMenuState(
+        **default_band.layers[0].model_dump(),
+        map_group_id=default_map_group.map_group_id,
+        map_id=default_map.map_id,
+        band_id=default_band.band_id,
+    )
 
     # Make layer summaries for all the default band's layers
     default_layer_summaries = [
@@ -120,9 +122,6 @@ def get_default_layer(request: Request):
     return LayerDefault(
         layer=default_layer,
         default_layer_menu=default_map_groups,
-        default_map_group_id=default_map_group.map_group_id,
-        default_map_id=default_map.map_id,
-        default_band_id=default_band.band_id,
     )
 
 
