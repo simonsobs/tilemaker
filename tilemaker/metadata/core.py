@@ -6,7 +6,7 @@ import structlog
 from pydantic import BaseModel
 
 from .boxes import Box
-from .definitions import Band, Layer, MapGroup
+from .definitions import Band, Layer, LayerWithMenuState, MapGroup, SearchResponse
 from .sources import SourceGroup
 
 
@@ -25,7 +25,9 @@ class DataConfiguration(BaseModel):
     def _match(self, name: str, query: str) -> bool:
         return query.lower() in name.lower()
 
-    def filter_map_groups(self, authorized_map_groups: list, query: str) -> dict:
+    def filter_map_groups(
+        self, authorized_map_groups: list, query: str
+    ) -> SearchResponse:
         matched_ids: set[str] = set()
         filtered_groups = []
 
@@ -67,7 +69,10 @@ class DataConfiguration(BaseModel):
             if filtered_maps:
                 filtered_groups.append({**group, "maps": filtered_maps})
 
-        return {"filtered_map_groups": filtered_groups, "matched_ids": matched_ids}
+        return SearchResponse(
+            filtered_map_groups=filtered_groups,
+            matched_ids=matched_ids,
+        )
 
     @property
     def bands(self) -> Iterable[Band]:
@@ -76,12 +81,18 @@ class DataConfiguration(BaseModel):
         )
 
     @property
-    def layers(self) -> Iterable[Layer]:
-        return itertools.chain.from_iterable(
-            band.layers
+    def layers(self) -> Iterable[LayerWithMenuState]:
+        return (
+            LayerWithMenuState(
+                **layer.model_dump(),
+                map_group_id=group.map_group_id,
+                map_id=map.map_id,
+                band_id=band.band_id,
+            )
             for group in self.map_groups
             for map in group.maps
             for band in map.bands
+            for layer in band.layers
         )
 
     def layer(self, layer_id: str) -> Layer | None:

@@ -132,20 +132,9 @@ def get_default_layer(request: Request):
     description="Retrieve the Layer data to be rendered in the mapping client.",
 )
 def get_layer_with_menu_state(layer_id: str, request: Request):
-    for map_group in request.app.config.map_groups:
-        if map_group.auth(request.auth.scopes):
-            for map in map_group.maps:
-                for band in map.bands:
-                    for layer in band.layers:
-                        if layer.layer_id == layer_id and map_group.auth(
-                            request.auth.scopes
-                        ):
-                            return LayerWithMenuState(
-                                **layer.model_dump(),
-                                map_group_id=map_group.map_group_id,
-                                map_id=map.map_id,
-                                band_id=band.band_id,
-                            )
+    for layer in request.app.config.layers:
+        if layer.layer_id == layer_id and layer.auth(request.auth.scopes):
+            return layer
 
 
 @layers_router.get(

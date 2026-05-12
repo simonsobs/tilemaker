@@ -16,9 +16,15 @@ from .boxes import Box
 from .core import DataConfiguration
 from .definitions import (
     Band,
+    BandMenuState,
     Layer,
+    LayerSummary,
+    LayerWithMenuState,
     Map,
     MapGroup,
+    MapGroupMenuState,
+    MapMenuState,
+    SearchResponse,
 )
 from .fits import FITSCombinationLayerProvider, FITSLayerProvider
 from .orm import (
@@ -61,12 +67,102 @@ class DatabaseDataConfiguration:
         """Create all tables in the database."""
         Base.metadata.create_all(self.engine)
 
-    """
-    TODO: Use database queries to filter map groups based on query string
-    """
+    def filter_map_groups(self, _: list, query: str) -> dict:
+        """
+        Use database queries to filter map groups based on user's query string
+        """
+        from sqlalchemy import or_
 
-    def filter_map_groups(self, authorized_map_groups: list, query: str) -> dict:
-        return {"filtered_map_groups": [], "matched_ids": []}
+        pattern = f"%{query}%"
+
+        with self.session_maker() as session:
+            hits = (
+                session.query(LayerORM, BandORM, MapORM, MapGroupORM)
+                .join(BandORM, LayerORM.band_id == BandORM.id)
+                .join(MapORM, BandORM.map_id == MapORM.id)
+                .join(MapGroupORM, MapORM.map_group_id == MapGroupORM.id)
+                .filter(
+                    or_(
+                        MapGroupORM.name.ilike(pattern),
+                        MapORM.name.ilike(pattern),
+                        BandORM.name.ilike(pattern),
+                        LayerORM.name.ilike(pattern),
+                    )
+                )
+                .all()
+            )
+
+        matched_ids: set[str] = set()
+
+        # Build the menu-state hierarchy purely from hit rows
+        # using ordered dicts to deduplicate by ID
+        group_map: dict[str, MapGroupMenuState] = {}
+        map_map: dict[str, MapMenuState] = {}
+        band_map: dict[tuple, BandMenuState] = {}
+
+        for layer_orm, band_orm, map_orm, group_orm in hits:
+            # Track what level matched to determine matched_ids
+            if query.lower() in group_orm.name.lower():
+                matched_ids.add(group_orm.map_group_id)
+            elif query.lower() in map_orm.name.lower():
+                matched_ids.add(map_orm.map_id)
+            elif query.lower() in band_orm.name.lower():
+                matched_ids.add(band_orm.band_id)
+            else:
+                matched_ids.add(layer_orm.layer_id)
+
+            layer_summary = LayerSummary(
+                layer_id=layer_orm.layer_id,
+                name=layer_orm.name,
+                description=layer_orm.description,
+                grant=layer_orm.grant,
+            )
+
+            band_key = (map_orm.map_id, band_orm.band_id)
+            if band_key not in band_map:
+                band_map[band_key] = BandMenuState(
+                    band_id=band_orm.band_id,
+                    name=band_orm.name,
+                    description=band_orm.description or "",
+                    grant=band_orm.grant,
+                    layers=[],
+                )
+
+            if map_orm.map_id not in map_map:
+                map_map[map_orm.map_id] = MapMenuState(
+                    map_id=map_orm.map_id,
+                    name=map_orm.name,
+                    description=map_orm.description or "",
+                    grant=map_orm.grant,
+                    bands=[],
+                )
+
+            if group_orm.map_group_id not in group_map:
+                group_map[group_orm.map_group_id] = MapGroupMenuState(
+                    map_group_id=group_orm.map_group_id,
+                    name=group_orm.name,
+                    description=group_orm.description or "",
+                    grant=group_orm.grant,
+                    maps=[],
+                )
+
+            # Wire up the hierarchy
+            band_state = band_map[band_key]
+            if layer_summary not in band_state.layers:
+                band_state.layers.append(layer_summary)
+
+            map_state = map_map[map_orm.map_id]
+            if band_state not in map_state.bands:
+                map_state.bands.append(band_state)
+
+            group_state = group_map[group_orm.map_group_id]
+            if map_state not in group_state.maps:
+                group_state.maps.append(map_state)
+
+        return SearchResponse(
+            filtered_map_groups=list(group_map.values()),
+            matched_ids=list(matched_ids),
+        )
 
     @property
     def map_groups(self) -> list[MapGroup]:
@@ -102,13 +198,19 @@ class DatabaseDataConfiguration:
         )
 
     @property
-    def layers(self) -> Iterable[Layer]:
+    def layers(self) -> Iterable[LayerWithMenuState]:
         """Retrieve all layers from the database."""
-        return itertools.chain.from_iterable(
-            band.layers
+        return (
+            LayerWithMenuState(
+                **layer.model_dump(),
+                map_group_id=group.map_group_id,
+                map_id=map.map_id,
+                band_id=band.band_id,
+            )
             for group in self.map_groups
             for map in group.maps
             for band in map.bands
+            for layer in band.layers
         )
 
     def layer(self, layer_id: str) -> Layer | None:
