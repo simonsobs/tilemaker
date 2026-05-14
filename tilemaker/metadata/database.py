@@ -160,7 +160,7 @@ class DatabaseDataConfiguration:
                 group_state.maps.append(map_state)
 
         return SearchResponse(
-            filtered_map_groups=list(group_map.values()),
+            filtered_layer_menu=list(group_map.values()),
             matched_ids=list(matched_ids),
         )
 

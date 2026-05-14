@@ -70,8 +70,8 @@ class DataConfiguration(BaseModel):
                 filtered_groups.append({**group, "maps": filtered_maps})
 
         return SearchResponse(
-            filtered_map_groups=filtered_groups,
-            matched_ids=matched_ids,
+            filtered_layer_menu=filtered_groups,
+            matched_ids=list(matched_ids),
         )
 
     @property
