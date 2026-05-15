@@ -21,6 +21,7 @@ class MapGroupORM(Base):
     __tablename__ = "map_groups"
 
     id = Column(Integer, primary_key=True)
+    map_group_id = Column(String, unique=True, nullable=False)
     name = Column(String, nullable=False)
     description = Column(String)
     grant = Column(String)

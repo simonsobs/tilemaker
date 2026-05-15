@@ -15,6 +15,7 @@ def create_sample_metadata(filename: str):
 
     return [
         MapGroup(
+            map_group_id="example-map-group",
             name="Map Group",
             description="Example",
             maps=[

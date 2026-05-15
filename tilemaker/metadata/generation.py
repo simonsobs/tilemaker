@@ -3,6 +3,7 @@ Create a set of metadata directly from a provider.
 """
 
 import os
+import uuid
 from hashlib import md5
 from pathlib import Path
 from typing import Any, Literal
@@ -76,7 +77,10 @@ def map_group_from_fits(
         )
 
     return MapGroup(
-        name="Auto-Populated", description="No description provided", maps=maps
+        map_group_id=f"map-group-{uuid.uuid4()}",
+        name="Auto-Populated",
+        description="No description provided",
+        maps=maps,
     )
 
 
