@@ -24,7 +24,7 @@ def extract(
     metadata: DataConfiguration,
     grants: set[str],
     show_grid: bool = False,
-) -> tuple[np.array, list[PushableTile]]:
+) -> tuple[np.array, list[PushableTile], WCS]:
     """
     Extract a sub-map from a band between RA and Dec ranges (in degrees).
 
@@ -84,11 +84,11 @@ def extract(
     wcs = WCS(
         {
             "NAXIS": 2,
+            "NAXIS1": NAXIS1,
+            "NAXIS2": NAXIS2,
             "CRPIX1": NAXIS1 * 0.5,
             "CRPIX2": NAXIS2 * 0.5 + 0.5,
             "CRVAL1": 0.0,
-            "NAXIS1": NAXIS1,
-            "NAXIS2": NAXIS2,
             "CRVAL2": 0.0,
             "CDELT1": CDELT_RA,
             "CDELT2": -CDELT_DEC,
@@ -197,4 +197,26 @@ def extract(
 
     log = log.info("extractor.complete")
 
-    return buffer, pushables
+    # Create WCS for submap; note that only CRPIX and NAXIS change
+    submap_wcs = WCS(
+        {
+            "NAXIS": 2,
+            "NAXIS1": x_size,
+            "NAXIS2": y_size,
+            "CRPIX1": wcs.wcs.crpix[0] - left_pix,
+            "CRPIX2": wcs.wcs.crpix[1] - bottom_pix,
+            "CRVAL1": wcs.wcs.crval[0],
+            "CRVAL2": wcs.wcs.crval[1],
+            "CDELT1": wcs.wcs.cdelt[0],
+            "CDELT2": wcs.wcs.cdelt[1],
+            "CTYPE1": "RA---CAR",
+            "CTYPE2": "DEC--CAR",
+            "CUNIT1": "deg",
+            "CUNIT2": "deg",
+            "LONPOLE": 90.0,
+            "LATPOLE": 0.0,
+            "RADESYS": "ICRS",
+        }
+    )
+
+    return buffer, pushables, submap_wcs
