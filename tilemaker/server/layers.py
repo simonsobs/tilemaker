@@ -158,7 +158,7 @@ def get_submap(
     Get a submap of the specified band.
     """
 
-    submap, pushables = extract(
+    submap, pushables, wcs = extract(
         layer_id=layer_id,
         left=left,
         right=right,
@@ -186,7 +186,8 @@ def get_submap(
             return Response(content=output.getvalue(), media_type="image/png")
     elif ext == "fits":
         with io.BytesIO() as output:
-            hdu = fits.PrimaryHDU(submap)
+            header = wcs.to_header()
+            hdu = fits.PrimaryHDU(submap, header=header)
             hdu.writeto(output)
             return Response(content=output.getvalue(), media_type="image/fits")
 
