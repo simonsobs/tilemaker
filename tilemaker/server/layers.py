@@ -158,7 +158,7 @@ def get_submap(
     Get a submap of the specified band.
     """
 
-    submap, pushables = extract(
+    submap, pushables, submap_wcs = extract(
         layer_id=layer_id,
         left=left,
         right=right,
@@ -168,6 +168,7 @@ def get_submap(
         grants=request.auth.scopes,
         metadata=request.app.config,
         show_grid=show_grid,
+        is_fits=ext == "fits",
     )
 
     bt.add_task(request.app.tiles.push, pushables)
@@ -186,7 +187,8 @@ def get_submap(
             return Response(content=output.getvalue(), media_type="image/png")
     elif ext == "fits":
         with io.BytesIO() as output:
-            hdu = fits.PrimaryHDU(submap)
+            header = submap_wcs.to_header()
+            hdu = fits.PrimaryHDU(submap, header)
             hdu.writeto(output)
             return Response(content=output.getvalue(), media_type="image/fits")
 
@@ -242,14 +244,43 @@ def get_tile(
 
     if render_options.flip:
         # Flipping is really a reconfiguration of -180 < RA < 180 to 360 < RA < 0;
-        # it's a card-folding operation.
-        if level != 0:
+        # it's a card-folding operation. This is only meaningful for a layer
+        # whose own pixel grid spans the full sky (RA=0 sits at the exact
+        # horizontal midpoint of its array) -- true for a directly-registered
+        # full-sky FITS file, but not for a submap cutout (see
+        # processing/extractor.py / processing/wcs_utils.py), whose array is
+        # much narrower and whose CRPIX1 does not sit at its midpoint.
+        # Applying the fold to such a layer scrambles tile positions instead
+        # of leaving them alone, so it's gated on the layer's own bounding
+        # box actually spanning (close to) 360 degrees of RA.
+        layer = next(
+            (lyr for lyr in request.app.config.layers if lyr.layer_id == layer_id),
+            None,
+        )
+        spans_full_sky = layer is not None and (
+            abs(layer.bounding_right - layer.bounding_left) > 350
+        )
+
+        if spans_full_sky and level != 0:
             # Level of zero requires no flipping apart from at the tile level.
             midpoint = 2 ** (level)
             if x < midpoint:
                 x = (2 ** (level) - 1) - x
             else:
                 x = (2 ** (level) - 1) - (x - midpoint) + midpoint
+
+        if not spans_full_sky:
+            # renderer.render()'s own per-tile mirror is the other half of
+            # this same full-sky-only "flip" mechanism (it's what the above
+            # index remap is meant to be paired with). Left enabled here,
+            # it mirrors each tile in isolation around its own center --
+            # for a full-sky layer that's fine since every tile's content
+            # is part of one continuous card-folded whole, but for a
+            # submap cutout it pushes each tile's real data away from the
+            # tile it's adjacent to, opening a visible gap wherever real
+            # data straddles a tile boundary. Since this layer doesn't
+            # need the fold at all, just don't mirror its tiles.
+            render_options.flip = False
 
     if ext not in ["jpg", "webp", "png"]:
         raise HTTPException(status_code=400, detail="Not an acceptable extension")

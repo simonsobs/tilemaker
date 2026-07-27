@@ -11,6 +11,7 @@ from astropy.coordinates import SkyCoord
 from astropy.wcs import WCS
 
 from tilemaker.metadata.core import DataConfiguration
+from tilemaker.processing.wcs_utils import build_submap_wcs
 from tilemaker.providers.core import PullableTile, PushableTile, Tiles
 
 
@@ -23,8 +24,9 @@ def extract(
     tiles: Tiles,
     metadata: DataConfiguration,
     grants: set[str],
+    is_fits: bool,
     show_grid: bool = False,
-) -> tuple[np.array, list[PushableTile]]:
+) -> tuple[np.array, list[PushableTile], WCS]:
     """
     Extract a sub-map from a band between RA and Dec ranges (in degrees).
 
@@ -46,6 +48,8 @@ def extract(
         Metadata object
     grants: set[str]
         Grants of the requesting user
+    is_fits: bool
+        Used to determine whether or not we need to derive a submap_wcs
     show_grid: bool = False
         Whether to 'show' the grid (grids are set as NaN values)
     """
@@ -101,6 +105,11 @@ def extract(
             "RADESYS": "ICRS",
         }
     )
+
+    submap_wcs = None
+
+    if is_fits:
+        submap_wcs = build_submap_wcs(left, right, top, bottom, base_wcs)
 
     # Convert RA/Dec to pixel values. No idea why we need to take the negative here.
     # Probably something I don't understand about wcs.
@@ -197,4 +206,20 @@ def extract(
 
     log = log.info("extractor.complete")
 
-    return buffer, pushables
+    if is_fits:
+        # submap_wcs's axes are padded (see build_submap_wcs) so that its
+        # CRPIX stays within NAXIS on both axes -- write the tight buffer
+        # into a larger, NaN-filled array at the offsets submap_wcs
+        # actually describes, rather than writing it out at its own tight
+        # size. This only affects the FITS export; PNG/JPG/WEBP renders
+        # still use the tight buffer directly, unaffected.
+        padded_x_size, padded_y_size = submap_wcs.pixel_shape
+        offset_x = submap_wcs.data_offset_x
+        offset_y = submap_wcs.data_offset_y
+        padded_buffer = np.full((padded_y_size, padded_x_size), np.nan)
+        padded_buffer[
+            offset_y : offset_y + int(y_size), offset_x : offset_x + int(x_size)
+        ] = buffer
+        buffer = padded_buffer
+
+    return buffer, pushables, submap_wcs

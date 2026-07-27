@@ -38,8 +38,17 @@ class FITSLayerProvider(LayerProvider):
             data = handle[self.hdu]
             wcs = WCS(header=data.header)
 
-            top_right = wcs.array_index_to_world(*[0] * data.header.get("NAXIS", 2))
-            bottom_left = wcs.array_index_to_world(*[x - 1 for x in data.data.shape])
+            # Evaluate both opposite corners and take min/max explicitly,
+            # rather than assuming pixel (0, 0) is always the max-RA/max-Dec
+            # corner: that assumption holds for a typical telescope FITS
+            # file (RA decreasing, Dec increasing with pixel index) but not
+            # in general -- e.g. a submap cut out via
+            # tilemaker.processing.wcs_utils.build_submap_wcs can have
+            # either axis running the other way, since its orientation is
+            # derived from how the pixel buffer was actually assembled, not
+            # from this convention.
+            corner_a = wcs.array_index_to_world(*[0] * data.header.get("NAXIS", 2))
+            corner_b = wcs.array_index_to_world(*[x - 1 for x in data.data.shape])
 
             def sanitize(x):
                 return (
@@ -58,17 +67,17 @@ class FITSLayerProvider(LayerProvider):
                 )
 
             try:
-                tr = sanitize(top_right)
-                bl = sanitize(bottom_left)
+                a = sanitize(corner_a)
+                b = sanitize(corner_b)
             except TypeError:
-                tr = sanitize_nonscalar(top_right)
-                bl = sanitize_nonscalar(bottom_left)
+                a = sanitize_nonscalar(corner_a)
+                b = sanitize_nonscalar(corner_b)
 
         return {
-            "bounding_left": bl[0].value,
-            "bounding_right": tr[0].value,
-            "bounding_top": tr[1].value,
-            "bounding_bottom": bl[1].value,
+            "bounding_left": min(a[0], b[0]).value,
+            "bounding_right": max(a[0], b[0]).value,
+            "bounding_top": max(a[1], b[1]).value,
+            "bounding_bottom": min(a[1], b[1]).value,
         }
 
     def calculate_tile_size(self) -> tuple[int, int]:
