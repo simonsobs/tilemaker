@@ -100,13 +100,31 @@ def build_submap_wcs(
     # (its CDELT signs combined with its LONPOLE/LATPOLE), and is left
     # alone rather than forced into a fixed orientation.
     #
-    # The written array starts at pixel 0 of base_wcs's own grid and spans
-    # out to whichever pixel index is furthest from it -- either the
-    # cutout's own far edge, or (if base_wcs's CRPIX itself sits beyond
-    # the cutout) that reference point, since `extract_patch_from_fits`
-    # treats `abs(CRPIX1) > NAXIS1` as a double-wrap sign and "corrects"
-    # it, corrupting the projection if the array doesn't reach that far.
-    naxis1_padded = int(np.ceil(max(px_bl, px_tr, ref_crpix1))) + 1
+    # The X (RA) axis is padded out to the width a genuine 360-degree-wide
+    # sky would have at base_wcs's own pixel scale -- not just "enough to
+    # reach the cutout (or CRPIX)". This costs more disk space per export
+    # (the array's width no longer scales down for small or nearby
+    # cutouts), but it's what makes CRPIX1 land at its own exact midpoint,
+    # the same way it already does on base_wcs's own full-sky grid. That
+    # midpoint property is what the server's tile-index "flip" fold
+    # (server/layers.py::get_tile) and its per-tile mirror
+    # (processing/renderer.py) both assume for the RA axis; without it,
+    # "flip" scrambles a submap layer's tiles instead of leaving them
+    # alone. With it, a submap-derived layer needs no special-casing at
+    # all -- it's handled by the exact same code path as a directly
+    # registered full-sky FITS file.
+    #
+    # The Y (Dec) axis does NOT get the same full-height treatment: both
+    # the fold and the mirror only ever act on the RA axis (a Dec value
+    # doesn't have a "0-360 vs -180-180" convention to reconcile), so Y
+    # keeps the original minimal padding -- just enough to reach the
+    # cutout's own far edge or CRPIX2, whichever is further. Padding Y out
+    # to a full 180 degrees actively breaks things here: base_wcs's own
+    # CRPIX2 reflects wherever its real (often Dec-limited) survey data
+    # sits, not the midpoint of a true pole-to-pole span, so a
+    # full-height array pushes far pixel rows outside the CAR
+    # projection's valid range and get_bbox() ends up with NaN corners.
+    naxis1_padded = int(round(360.0 / cdelt1_mag))
     naxis2_padded = int(np.ceil(max(py_bl, py_tr, ref_crpix2))) + 1
     data_offset_x = int(round(min(px_bl, px_tr)))
     data_offset_y = int(round(min(py_bl, py_tr)))

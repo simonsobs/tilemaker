@@ -3,6 +3,8 @@ Endpoint for layer and tile data
 """
 
 import io
+import os
+import tempfile
 from typing import Literal
 
 from astropy.io import fits
@@ -14,6 +16,7 @@ from fastapi import (
     Request,
     Response,
 )
+from fastapi.responses import FileResponse
 
 from tilemaker.metadata.definitions import (
     BandMenuState,
@@ -186,11 +189,28 @@ def get_submap(
             renderer.render(output, submap, render_options=render_options)
             return Response(content=output.getvalue(), media_type="image/png")
     elif ext == "fits":
-        with io.BytesIO() as output:
-            header = submap_wcs.to_header()
-            hdu = fits.PrimaryHDU(submap, header)
-            hdu.writeto(output)
-            return Response(content=output.getvalue(), media_type="image/fits")
+        # A submap-derived layer's array is now padded out to a full-sky
+        # -sized grid (see processing/wcs_utils.py::build_submap_wcs), so
+        # `submap` can be multiple GB even though almost all of it is NaN
+        # padding. Serializing through an in-memory io.BytesIO -- and then
+        # Response(content=...) taking another copy via output.getvalue()
+        # -- means holding several multiples of that size in memory at
+        # once, which can exhaust memory outright for a large base layer.
+        # Writing directly to a file and streaming it back via
+        # FileResponse instead keeps astropy's write side to its own
+        # internal (small, chunked) buffering, and avoids the extra
+        # in-memory copies entirely.
+        header = submap_wcs.to_header()
+        hdu = fits.PrimaryHDU(submap, header)
+        tmp = tempfile.NamedTemporaryFile(suffix=".fits", delete=False)
+        tmp.close()
+        hdu.writeto(tmp.name, overwrite=True)
+        bt.add_task(os.remove, tmp.name)
+        return FileResponse(
+            tmp.name,
+            media_type="image/fits",
+            filename=f"{layer_id}_submap.fits",
+        )
 
 
 def core_tile_retrieval(
@@ -244,43 +264,20 @@ def get_tile(
 
     if render_options.flip:
         # Flipping is really a reconfiguration of -180 < RA < 180 to 360 < RA < 0;
-        # it's a card-folding operation. This is only meaningful for a layer
-        # whose own pixel grid spans the full sky (RA=0 sits at the exact
-        # horizontal midpoint of its array) -- true for a directly-registered
-        # full-sky FITS file, but not for a submap cutout (see
-        # processing/extractor.py / processing/wcs_utils.py), whose array is
-        # much narrower and whose CRPIX1 does not sit at its midpoint.
-        # Applying the fold to such a layer scrambles tile positions instead
-        # of leaving them alone, so it's gated on the layer's own bounding
-        # box actually spanning (close to) 360 degrees of RA.
-        layer = next(
-            (lyr for lyr in request.app.config.layers if lyr.layer_id == layer_id),
-            None,
-        )
-        spans_full_sky = layer is not None and (
-            abs(layer.bounding_right - layer.bounding_left) > 350
-        )
-
-        if spans_full_sky and level != 0:
+        # it's a card-folding operation. This assumes the layer's own pixel
+        # grid spans the full sky with RA=0 at the exact horizontal
+        # midpoint of its array -- true for a directly-registered full-sky
+        # FITS file, and also true for a submap cutout (see
+        # processing/wcs_utils.py::build_submap_wcs), whose array is
+        # padded out to a full-sky-sized grid specifically so this holds
+        # for it too, rather than needing to be special-cased here.
+        if level != 0:
             # Level of zero requires no flipping apart from at the tile level.
             midpoint = 2 ** (level)
             if x < midpoint:
                 x = (2 ** (level) - 1) - x
             else:
                 x = (2 ** (level) - 1) - (x - midpoint) + midpoint
-
-        if not spans_full_sky:
-            # renderer.render()'s own per-tile mirror is the other half of
-            # this same full-sky-only "flip" mechanism (it's what the above
-            # index remap is meant to be paired with). Left enabled here,
-            # it mirrors each tile in isolation around its own center --
-            # for a full-sky layer that's fine since every tile's content
-            # is part of one continuous card-folded whole, but for a
-            # submap cutout it pushes each tile's real data away from the
-            # tile it's adjacent to, opening a visible gap wherever real
-            # data straddles a tile boundary. Since this layer doesn't
-            # need the fold at all, just don't mirror its tiles.
-            render_options.flip = False
 
     if ext not in ["jpg", "webp", "png"]:
         raise HTTPException(status_code=400, detail="Not an acceptable extension")
