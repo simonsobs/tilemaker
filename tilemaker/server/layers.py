@@ -189,17 +189,15 @@ def get_submap(
             renderer.render(output, submap, render_options=render_options)
             return Response(content=output.getvalue(), media_type="image/png")
     elif ext == "fits":
-        # A submap-derived layer's array is now padded out to a full-sky
-        # -sized grid (see processing/wcs_utils.py::build_submap_wcs), so
-        # `submap` can be multiple GB even though almost all of it is NaN
-        # padding. Serializing through an in-memory io.BytesIO -- and then
-        # Response(content=...) taking another copy via output.getvalue()
-        # -- means holding several multiples of that size in memory at
-        # once, which can exhaust memory outright for a large base layer.
-        # Writing directly to a file and streaming it back via
-        # FileResponse instead keeps astropy's write side to its own
-        # internal (small, chunked) buffering, and avoids the extra
-        # in-memory copies entirely.
+        # submap's array is padded slightly beyond the requested cutout
+        # (see processing/wcs_utils.py::build_submap_wcs) to keep a
+        # re-ingested copy's tile-serving subsample phase aligned with the
+        # source layer's own -- a small, bounded amount, not a full-sky
+        # -sized grid. Still, write directly to a file and stream it back
+        # via FileResponse rather than through an in-memory io.BytesIO (and
+        # the extra copy Response(content=...) would take via
+        # output.getvalue()), so astropy's write side keeps to its own
+        # internal (small, chunked) buffering.
         header = submap_wcs.to_header()
         hdu = fits.PrimaryHDU(submap, header)
         tmp = tempfile.NamedTemporaryFile(suffix=".fits", delete=False)
@@ -264,13 +262,13 @@ def get_tile(
 
     if render_options.flip:
         # Flipping is really a reconfiguration of -180 < RA < 180 to 360 < RA < 0;
-        # it's a card-folding operation. This assumes the layer's own pixel
-        # grid spans the full sky with RA=0 at the exact horizontal
-        # midpoint of its array -- true for a directly-registered full-sky
-        # FITS file, and also true for a submap cutout (see
-        # processing/wcs_utils.py::build_submap_wcs), whose array is
-        # padded out to a full-sky-sized grid specifically so this holds
-        # for it too, rather than needing to be special-cased here.
+        # it's a card-folding operation on the abstract tile index (x,
+        # level), derived from a hardcoded virtual full-sky grid
+        # (providers/fits.py::FITSTileProvider._get_tile_info). It never
+        # reads the underlying file's own WCS/CRPIX/NAXIS, so it works
+        # identically for a directly-registered full-sky FITS file and for
+        # a re-ingested submap cutout (processing/wcs_utils.py::
+        # build_submap_wcs) without any special-casing here.
         if level != 0:
             # Level of zero requires no flipping apart from at the tile level.
             midpoint = 2 ** (level)
