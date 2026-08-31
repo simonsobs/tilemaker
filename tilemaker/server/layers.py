@@ -199,7 +199,7 @@ def get_submap(
         # output.getvalue()), so astropy's write side keeps to its own
         # internal (small, chunked) buffering.
         header = submap_wcs.to_header()
-        hdu = fits.PrimaryHDU(submap, header)
+        hdu = fits.PrimaryHDU(submap[:, ::-1], header)
         tmp = tempfile.NamedTemporaryFile(suffix=".fits", delete=False)
         tmp.close()
         hdu.writeto(tmp.name, overwrite=True)
