@@ -14,6 +14,41 @@ from astropy.wcs import WCS
 from pydantic import BaseModel
 
 
+def tile_size_for_scale(scale_x_deg, scale_y_deg) -> tuple[int, int]:
+    """
+    Derive (tile_size, number_of_levels) for a tile pyramid covering the
+    full sky at the given per-axis pixel scale. Shared between
+    FITSLayerProvider.calculate_tile_size (for a directly-ingested file) and
+    processing.wcs_utils.build_submap_wcs (which needs to know, ahead of
+    ingestion, what number_of_levels a from-scratch `tilemaker open` of its
+    export would derive) so the two always agree.
+    """
+    # The full sky spans 360 deg in RA, 180 deg in Dec
+    map_size_x = math.floor(360 * units.deg / scale_x_deg)
+    map_size_y = math.floor(180 * units.deg / scale_y_deg)
+
+    max_size = max(map_size_x, map_size_y)
+
+    # See if 256 fits.
+    if (map_size_x % 256 == 0) and (map_size_y % 256 == 0):
+        tile_size = 256
+        number_of_levels = int(math.log2(max_size // 256))
+        return tile_size, number_of_levels
+
+    # Oh no, remove all the powers of two until
+    # we get an odd number.
+    this_tile_size = map_size_y
+
+    # Also don't make it too small.
+    while this_tile_size % 2 == 0 and this_tile_size > 512:
+        this_tile_size = this_tile_size // 2
+
+    number_of_levels = int(math.log2(max_size // this_tile_size))
+    tile_size = this_tile_size
+
+    return tile_size, number_of_levels
+
+
 class LayerProvider(BaseModel):
     """Base class for layer providers."""
 
@@ -38,8 +73,17 @@ class FITSLayerProvider(LayerProvider):
             data = handle[self.hdu]
             wcs = WCS(header=data.header)
 
-            top_right = wcs.array_index_to_world(*[0] * data.header.get("NAXIS", 2))
-            bottom_left = wcs.array_index_to_world(*[x - 1 for x in data.data.shape])
+            # Evaluate both opposite corners and take min/max explicitly,
+            # rather than assuming pixel (0, 0) is always the max-RA/max-Dec
+            # corner: that assumption holds for a typical telescope FITS
+            # file (RA decreasing, Dec increasing with pixel index) but not
+            # in general -- e.g. a submap cut out via
+            # tilemaker.processing.wcs_utils.build_submap_wcs can have
+            # either axis running the other way, since its orientation is
+            # derived from how the pixel buffer was actually assembled, not
+            # from this convention.
+            corner_a = wcs.array_index_to_world(*[0] * data.header.get("NAXIS", 2))
+            corner_b = wcs.array_index_to_world(*[x - 1 for x in data.data.shape])
 
             def sanitize(x):
                 return (
@@ -58,53 +102,25 @@ class FITSLayerProvider(LayerProvider):
                 )
 
             try:
-                tr = sanitize(top_right)
-                bl = sanitize(bottom_left)
+                a = sanitize(corner_a)
+                b = sanitize(corner_b)
             except TypeError:
-                tr = sanitize_nonscalar(top_right)
-                bl = sanitize_nonscalar(bottom_left)
+                a = sanitize_nonscalar(corner_a)
+                b = sanitize_nonscalar(corner_b)
 
         return {
-            "bounding_left": bl[0].value,
-            "bounding_right": tr[0].value,
-            "bounding_top": tr[1].value,
-            "bounding_bottom": bl[1].value,
+            "bounding_left": min(a[0], b[0]).value,
+            "bounding_right": max(a[0], b[0]).value,
+            "bounding_top": max(a[1], b[1]).value,
+            "bounding_bottom": min(a[1], b[1]).value,
         }
 
     def calculate_tile_size(self) -> tuple[int, int]:
         """Calculate appropriate tile size based on FITS file properties."""
-        # Need to figure out how big the whole 'map' is, i.e. moving it up
-        # so that it fills the whole space.
         wcs = self.get_wcs()
 
         scale = wcs.proj_plane_pixel_scales()
-        scale_x_deg = scale[0]
-        scale_y_deg = scale[1]
-
-        # The full sky spans 360 deg in RA, 180 deg in Dec
-        map_size_x = int(math.floor(360 * units.deg / scale_x_deg))
-        map_size_y = int(math.floor(180 * units.deg / scale_y_deg))
-
-        max_size = max(map_size_x, map_size_y)
-
-        # See if 256 fits.
-        if (map_size_x % 256 == 0) and (map_size_y % 256 == 0):
-            tile_size = 256
-            number_of_levels = int(math.log2(max_size // 256))
-            return tile_size, number_of_levels
-
-        # Oh no, remove all the powers of two until
-        # we get an odd number.
-        this_tile_size = map_size_y
-
-        # Also don't make it too small.
-        while this_tile_size % 2 == 0 and this_tile_size > 512:
-            this_tile_size = this_tile_size // 2
-
-        number_of_levels = int(math.log2(max_size // this_tile_size))
-        tile_size = this_tile_size
-
-        return tile_size, number_of_levels
+        return tile_size_for_scale(scale[0], scale[1])
 
     def get_wcs(self) -> WCS:
         """Get the WCS object from the FITS file."""

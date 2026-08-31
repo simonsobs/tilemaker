@@ -30,6 +30,9 @@ dependencies = [
     "astropydantic"
 ]
 
+[project.optional-dependencies]
+dev = ["pytest"]
+
 [project.scripts]
 tilemaker = "tilemaker.client.cli:main"
 tilemaker-db = "tilemaker.metadata.database:main"

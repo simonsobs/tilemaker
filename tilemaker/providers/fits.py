@@ -261,7 +261,18 @@ def extract_patch_from_fits(
         log = log.bind(dt=end - start)
         log.debug("fits.no_data")
 
-        return None
+        # The requested window falls entirely outside the FITS array (as
+        # opposed to overlapping it but landing on NaN padding, which
+        # extract_array handles fine and doesn't hit this branch). Return an
+        # all-NaN patch of the same (post-subsample) shape a real cutout
+        # would have, rather than None: this keeps every "no data here"
+        # tile behaving the same way (a normal, cacheable blank tile
+        # response) regardless of which of the two cases produced it.
+        # Returning None instead surfaces as an HTTP 404 for this specific
+        # case only, which client tile-loading code can treat very
+        # differently from a successful-but-blank tile.
+        blank_shape = tuple(s // subsample_every for s in shape)
+        return np.full(blank_shape, np.nan)
 
     if subsample_every > 1:
         log = log.bind(subsample_every=subsample_every)

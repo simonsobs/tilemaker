@@ -3,6 +3,8 @@ Endpoint for layer and tile data
 """
 
 import io
+import os
+import tempfile
 from typing import Literal
 
 from astropy.io import fits
@@ -14,6 +16,7 @@ from fastapi import (
     Request,
     Response,
 )
+from fastapi.responses import FileResponse
 
 from tilemaker.metadata.definitions import (
     BandMenuState,
@@ -158,7 +161,7 @@ def get_submap(
     Get a submap of the specified band.
     """
 
-    submap, pushables = extract(
+    submap, pushables, submap_wcs = extract(
         layer_id=layer_id,
         left=left,
         right=right,
@@ -168,6 +171,7 @@ def get_submap(
         grants=request.auth.scopes,
         metadata=request.app.config,
         show_grid=show_grid,
+        is_fits=ext == "fits",
     )
 
     bt.add_task(request.app.tiles.push, pushables)
@@ -185,10 +189,26 @@ def get_submap(
             renderer.render(output, submap, render_options=render_options)
             return Response(content=output.getvalue(), media_type="image/png")
     elif ext == "fits":
-        with io.BytesIO() as output:
-            hdu = fits.PrimaryHDU(submap)
-            hdu.writeto(output)
-            return Response(content=output.getvalue(), media_type="image/fits")
+        # submap's array is padded slightly beyond the requested cutout
+        # (see processing/wcs_utils.py::build_submap_wcs) to keep a
+        # re-ingested copy's tile-serving subsample phase aligned with the
+        # source layer's own -- a small, bounded amount, not a full-sky
+        # -sized grid. Still, write directly to a file and stream it back
+        # via FileResponse rather than through an in-memory io.BytesIO (and
+        # the extra copy Response(content=...) would take via
+        # output.getvalue()), so astropy's write side keeps to its own
+        # internal (small, chunked) buffering.
+        header = submap_wcs.to_header()
+        hdu = fits.PrimaryHDU(submap[:, ::-1], header)
+        tmp = tempfile.NamedTemporaryFile(suffix=".fits", delete=False)
+        tmp.close()
+        hdu.writeto(tmp.name, overwrite=True)
+        bt.add_task(os.remove, tmp.name)
+        return FileResponse(
+            tmp.name,
+            media_type="image/fits",
+            filename=f"{layer_id}_submap.fits",
+        )
 
 
 def core_tile_retrieval(
@@ -242,7 +262,13 @@ def get_tile(
 
     if render_options.flip:
         # Flipping is really a reconfiguration of -180 < RA < 180 to 360 < RA < 0;
-        # it's a card-folding operation.
+        # it's a card-folding operation on the abstract tile index (x,
+        # level), derived from a hardcoded virtual full-sky grid
+        # (providers/fits.py::FITSTileProvider._get_tile_info). It never
+        # reads the underlying file's own WCS/CRPIX/NAXIS, so it works
+        # identically for a directly-registered full-sky FITS file and for
+        # a re-ingested submap cutout (processing/wcs_utils.py::
+        # build_submap_wcs) without any special-casing here.
         if level != 0:
             # Level of zero requires no flipping apart from at the tile level.
             midpoint = 2 ** (level)
