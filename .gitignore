@@ -16,3 +16,6 @@ build/*
 tileviewer
 uv.lock
 .python-version
+
+# Allow screenshot for JOSS paper
+!paper/so_mapviewer.png
