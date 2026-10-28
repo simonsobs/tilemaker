@@ -6,6 +6,7 @@ WORKDIR /
 RUN apt-get update && apt-get install -y git nodejs npm
 RUN git clone https://github.com/simonsobs/tileviewer.git
 WORKDIR /tileviewer
+RUN npm install -g npm@latest
 RUN npm cache clean --force
 RUN rm -rf node_modules/.vite
 RUN npm install
