@@ -7,7 +7,7 @@ WORKDIR /
 
 # git is only needed to fetch tileviewer
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    git \
+    git ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 # Clone and build tileviewer
