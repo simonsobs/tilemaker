@@ -47,10 +47,4 @@ RUN pip install --no-cache-dir --upgrade . \
 
 EXPOSE 8000
 
-CMD [
-    "gunicorn",
-    "-k", "uvicorn.workers.UvicornWorker",
-    "-w", "8",
-    "tilemaker.server:app",
-    "--bind", "0.0.0.0:8000"
-]
+CMD ["gunicorn", "-k", "uvicorn.workers.UvicornWorker", "-w", "8", "tilemaker.server:app", "--bind", "0.0.0.0:8000"]
