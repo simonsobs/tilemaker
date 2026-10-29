@@ -1,32 +1,56 @@
-FROM python:3.11
+# ------------------------------------------------------------
+# Frontend build stage
+# ------------------------------------------------------------
+FROM node:26-bookworm-slim AS frontend-builder
 
 WORKDIR /
 
-# Clone client and build it; also clean cache to ensure no strange vite build issues
-RUN apt-get update && apt-get install -y git nodejs npm
+# git is only needed to fetch tileviewer
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Clone and build tileviewer
 RUN git clone https://github.com/simonsobs/tileviewer.git
+
 WORKDIR /tileviewer
-RUN npm install -g npm@latest
-RUN npm cache clean --force
-RUN rm -rf node_modules/.vite
-RUN npm install
-RUN npm run build
 
-# Copy this repo's code into a directory called livetiler
-WORKDIR /
-COPY ./tilemaker livetiler/tilemaker
-COPY ./pyproject.toml livetiler/pyproject.toml
+# Clean any potentially stale Vite artifacts, then install and build
+RUN npm cache clean --force \
+    && rm -rf node_modules/.vite \
+    && npm install \
+    && npm run build
 
-# Copy client's build into livetiler's static directory, ensuring a clean copy,
-# then delete client repo
+
+# ------------------------------------------------------------
+# Python runtime stage
+# ------------------------------------------------------------
+FROM python:3.13-bookworm
+
 WORKDIR /livetiler
-RUN rm -rf tilemaker/server/static && mkdir -p tilemaker/server/static
-RUN cp -r /tileviewer/dist/* tilemaker/server/static 
-RUN rm -rf /tileviewer
 
-RUN pip install --no-cache-dir --upgrade .
-RUN pip install --no-cache-dir --upgrade "gunicorn"
+# Copy this repo's Python code
+COPY ./tilemaker ./tilemaker
+COPY ./pyproject.toml ./pyproject.toml
+
+# Copy the compiled frontend from the Node build stage
+RUN rm -rf tilemaker/server/static \
+    && mkdir -p tilemaker/server/static
+
+COPY --from=frontend-builder \
+    /tileviewer/dist/ \
+    ./tilemaker/server/static/
+
+# Install Python application and runtime server
+RUN pip install --no-cache-dir --upgrade . \
+    && pip install --no-cache-dir --upgrade gunicorn
 
 EXPOSE 8000
 
-CMD ["gunicorn", "-k", "uvicorn.workers.UvicornWorker", "-w", "8", "tilemaker.server:app", "--bind", "0.0.0.0:8000"]
+CMD [
+    "gunicorn",
+    "-k", "uvicorn.workers.UvicornWorker",
+    "-w", "8",
+    "tilemaker.server:app",
+    "--bind", "0.0.0.0:8000"
+]
