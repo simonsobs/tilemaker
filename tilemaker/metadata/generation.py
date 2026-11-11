@@ -166,28 +166,31 @@ class ProtoLayer(BaseModel):
     def convert_data(
         self, map_units: str | None, force_auto_contrast: bool = False
     ) -> dict[str, Any]:
-        if map_units != "unk":
+        if force_auto_contrast:
+            vmin = vmax = "auto"
+            if map_units != "unk":
+                map_units = map_units or self.units
+        elif map_units != "unk":
             map_units = map_units or self.units
-
-            if self.vmax != "auto":
-                vmax = units.Quantity(self.vmax, unit=self.units)
-                vmax = vmax.to_value(map_units)
-            else:
-                vmax = "auto"
-
-            if self.vmin != "auto":
-                vmin = units.Quantity(self.vmin, unit=self.units)
-                vmin = vmin.to_value(map_units)
-            else:
-                vmin = "auto"
-
+            try:
+                vmin, vmax = (
+                    v
+                    if v == "auto"
+                    else units.Quantity(v, unit=self.units).to_value(map_units)
+                    for v in (self.vmin, self.vmax)
+                )
+            except (units.UnitsError, ValueError):
+                # Map units differ from the default units (e.g. pW^-2 vs K^-2).
+                structlog.get_logger().warning(
+                    "units.not_convertible",
+                    layer=self.name,
+                    default_units=self.units,
+                    map_units=map_units,
+                )
+                vmin = vmax = "auto"
         else:
             vmin = self.vmin
             vmax = self.vmax
-
-        if force_auto_contrast:
-            vmin = "auto"
-            vmax = "auto"
 
         return {
             "name": self.name,

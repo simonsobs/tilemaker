@@ -110,6 +110,9 @@ machine you are using to connect to the remote and render the viewer there.
 It's important to ensure that your map has the correct `BUNIT` value in the
 header. We attempt to 'guess' what the units should be for various maps,
 but telling the difference between e.g. `uK` and `K` maps is nontrivial.
+If `BUNIT` cannot be converted from the default units of the guessed map type
+(e.g. an inverse-variance map in `pW^-2` or `1/pW` instead of `K^-2`), the
+layer keeps the `BUNIT` label and uses auto contrast.
 
 A good example map to start with is one of the
 [ACT DR6.02 Coadd maps](https://lambda.gsfc.nasa.gov/product/act/act_dr6.02/act_dr6.02_maps_coadd_get.html).
